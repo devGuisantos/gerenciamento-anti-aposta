@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Logo } from "@shared/ui/logo";
+import { ThemeToggle } from "@shared/ui/theme-toggle";
 
 const NAV_LINKS = [
   { href: "#como-funciona", label: "Como funciona" },
@@ -29,8 +30,9 @@ export default function MarketingLayout({ children }: LayoutProps<"/">) {
           </nav>
 
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <ThemeToggle />
             <Button asChild variant="ghost" size="sm" className="h-9 md:h-8">
-              <Link href="/login">Entrar</Link>
+              <Link href="/dashboard">Entrar</Link>
             </Button>
             <Button asChild size="sm" className="h-9 md:h-8">
               <Link href="/register">Criar conta</Link>

@@ -5,9 +5,11 @@ import { cn } from 'cn';
 type LogoProps = {
   readonly className?: string;
   readonly href?: string;
+  /** When false, only the mark renders — used by the collapsed sidebar. */
+  readonly showText?: boolean;
 };
 
-export function Logo({ className, href = '/' }: LogoProps) {
+export function Logo({ className, href = '/', showText = true }: LogoProps) {
   return (
     <Link
       href={href}
@@ -16,10 +18,17 @@ export function Logo({ className, href = '/' }: LogoProps) {
         className,
       )}
     >
-      <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+      <span
+        data-slot="logo-mark"
+        className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"
+      >
         <ShieldCheck className="size-4" />
       </span>
-      anti-aposta
+      {showText ? (
+        <span data-slot="logo-text" className="whitespace-nowrap">
+          anti-aposta
+        </span>
+      ) : null}
     </Link>
   );
 }

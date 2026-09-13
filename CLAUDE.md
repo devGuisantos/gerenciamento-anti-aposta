@@ -160,6 +160,7 @@ guidance to the **nearest** file; promote it here only when it truly applies eve
 | Delivery layer, UI, palette | `app/CLAUDE.md`                         |
 | Landing / public pages      | `app/(marketing)/CLAUDE.md`             |
 | Login, register             | `app/(auth)/CLAUDE.md`                  |
+| Authenticated app, sidebar  | `app/(platform)/CLAUDE.md`              |
 | Vendored shadcn primitives  | `components/ui/CLAUDE.md`               |
 | Tactical DDD + testing      | `src/CLAUDE.md`                         |
 | Module anatomy, event map   | `src/modules/CLAUDE.md`                 |

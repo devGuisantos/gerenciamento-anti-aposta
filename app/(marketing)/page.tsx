@@ -98,7 +98,7 @@ export default function LandingPage() {
       <section className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:py-24">
         <div className="space-y-6">
           <Badge variant="outline" className="gap-1.5">
-            <span className="size-1.5 rounded-full bg-azul" />
+            <span className="size-1.5 rounded-full bg-foreground" />
             Baseado no Open Finance Brasil
           </Badge>
 
@@ -183,7 +183,7 @@ export default function LandingPage() {
             <Card key={step.title} className="h-full">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                  <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
                     <step.icon className="size-4.5" />
                   </span>
                   <span className="font-heading text-sm text-muted-foreground/60">
@@ -213,7 +213,7 @@ export default function LandingPage() {
           {HABIT_FEATURES.map((feature) => (
             <Card key={feature.title} className="h-full">
               <CardHeader>
-                <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
                   <feature.icon className="size-4.5" />
                 </span>
                 <CardTitle className="mt-3">{feature.title}</CardTitle>
@@ -290,7 +290,7 @@ function NudgePreview() {
           <p className="text-xs text-muted-foreground">
             Esse valor, investido em renda fixa por 12 meses
           </p>
-          <p className="font-heading text-3xl font-semibold tracking-tight text-positive">
+          <p className="font-heading text-3xl font-semibold tracking-tight">
             R$ 557,00
           </p>
           <p className="text-xs text-muted-foreground">

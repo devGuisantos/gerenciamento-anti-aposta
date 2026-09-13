@@ -46,35 +46,35 @@ export async function revokeConsentAction(formData: FormData) {
   `className="h-10"` on primary form controls and hero CTAs.
 - Every input has a real `<Label htmlFor>`, an `autoComplete`, and native validation attributes.
 
-## Palette — coffee dominant
+## Palette — neutral, monochrome
 
-One theme, defined in `app/globals.css`. There is **no light mode** and no `.dark` block, so the
-appearance is deterministic; `color-scheme: dark` is set so native controls and scrollbars match.
+The default shadcn `neutral` palette in `app/globals.css`: grayscale surfaces and text, light theme
+with a `.dark` block. A branded palette (coffee/creme/azul) was tried and rejected — do not
+reintroduce decorative colour.
 
-| Role                       | Hex       | Token                                 |
-| -------------------------- | --------- | ------------------------------------- |
-| Coffee — surfaces (main)   | `#241A12` | `--background`                        |
-| Coffee, one step up        | `#31241A` | `--card`, `--popover`                 |
-| Coffee, raised             | `#3D2E22` | `--muted`, `--secondary`              |
-| Creme — highlight          | `#FDFBD4` | `--primary` (CTA fill), `--creme`     |
-| Creme, softened for text   | `#F5F0D6` | `--foreground`                        |
-| Creme, dimmed              | `#C0AB92` | `--muted-foreground`                  |
-| Azul — details             | `#82C8E5` | `--azul`, `--ring`, `--positive`      |
-| Azul, dark fill            | `#2F4A58` | `--accent` (icon chips)               |
-| Coffee brand mark          | `#6F4E37` | `--coffee`                            |
+**Dark mode is live.** shadcn supplies the `.dark` tokens and the `dark:` variant; `next-themes`
+supplies the switching. `ThemeProvider` (`@shared/ui/theme-provider`) wraps the app in the root
+layout with `attribute="class"` and `defaultTheme="system"`, `<html>` carries
+`suppressHydrationWarning` because the theme class is set by a blocking script before hydration,
+and `ThemeToggle` (`@shared/ui/theme-toggle`) sits in all three headers as a single button that
+flips light ↔ dark. There is deliberately no "system" option in the UI: `defaultTheme="system"`
+still means an untouched install follows the OS, and the first click pins an explicit choice.
+Consequences for new UI:
 
-Rules:
+- Use tokens and nothing else, and both themes come out right for free. A hard-coded colour is now
+  a bug in one of the two themes, guaranteed.
+- Never read the resolved theme during render to pick an icon or a class — it mismatches on
+  hydration. Render both states and swap them with `dark:` classes, as `ThemeToggle` does.
 
-- Raw Tailwind palette classes (`text-emerald-600`, `bg-sky-500`, …) are **banned**. Every colour
-  comes from a token, so nothing drifts off-brand.
-- Creme is the **highlight**, used in small doses: the primary CTA, the progress fill, key
-  emphasis. It is not a background.
-- `text-positive` (azul) is the "what this money could have earned" colour — the yield figure,
-  never a raw hex.
-- Primary buttons are creme with coffee text (`--primary-foreground` `#33241A`), which is the
-  highest-contrast pair in the palette and makes the CTA the loudest thing on the page.
-- Every foreground/background pair clears WCAG AA (≥ 4.5:1); the weakest is muted text on a raised
-  surface at 5.88:1. Check any new pair before committing.
+- Hierarchy comes from **type scale, weight, spacing and surface elevation**, not hue.
+- Raw Tailwind palette classes (`text-emerald-600`, `bg-sky-500`, …) are **banned**. Use the
+  semantic tokens: `bg-background`, `bg-card`, `bg-muted`, `text-muted-foreground`,
+  `border-border`.
+- **Red (`text-destructive`) is reserved** for gambling amounts and genuinely negative signals. It
+  is the only colour in the product, which is exactly what gives it force.
+- Colour never carries meaning alone: every red amount is accompanied by a label or icon saying
+  what it is (the `Aposta` badge, the "Gasto com apostas" heading). Required for colour-blind
+  users, and non-negotiable.
 
 ## Responsive — mobile and desktop, both first-class
 
