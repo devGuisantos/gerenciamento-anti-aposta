@@ -40,6 +40,21 @@ a bounded context in `src/modules`. Adding an item means adding its route in the
 a nav entry that 404s is a broken nav, which is why the unimplemented screens render
 `PlaceholderPage` naming the module that will own them.
 
+## `/admin` — the demo console
+
+An unlisted route that publishes notifications by hand while the modules do not exist. It is
+deliberately **not** in `NAV_GROUPS`: reachable only by typing the URL, and `robots: noindex`.
+
+`isDemoConsoleEnabled()` gates the page and both API routes — on outside production, off inside
+unless `ENABLE_DEMO_CONSOLE=true`. The page is `dynamic = 'force-dynamic'` so that flag is read per
+request; static rendering would bake the build-time answer in and 404 forever.
+
+Notifications are delivered by real Server-Sent Events, so this exercises the transport the
+`notifications` module will own rather than faking it with local state. `NotificationListener` in
+the layout subscribes once for the whole app: an awareness nudge opens a **modal** (§4.1 of the
+TCC), everything else is a toast. Publishing reaches every connected browser, not one user — fine
+for a demo, unacceptable for the real thing.
+
 ## Data
 
 Screens currently read `_mock-snapshot.ts` fixtures: **integer cents**, matching the `Money` type

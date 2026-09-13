@@ -6,10 +6,12 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@shared/ui/theme-toggle';
 
 import { AppSidebar } from './_components/app-sidebar';
+import { NotificationListener } from './_components/notification-listener';
 
 export default function PlatformLayout({ children }: LayoutProps<'/'>) {
   return (
@@ -38,6 +40,10 @@ export default function PlatformLayout({ children }: LayoutProps<'/'>) {
           </header>
 
           <div className="flex-1">{children}</div>
+
+          {/* Nudges and achievements arrive here from the SSE stream. */}
+          <NotificationListener />
+          <Toaster position="bottom-right" />
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

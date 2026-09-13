@@ -271,7 +271,7 @@ export default function LandingPage() {
 
 function NudgePreview() {
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardHeader className="border-b pb-4">
         <div className="flex items-center gap-2 text-muted-foreground">
           <BellRing className="size-4" />
