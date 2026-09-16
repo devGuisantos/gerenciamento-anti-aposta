@@ -27,6 +27,9 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-spend-none: var(--spend-none);
+  --color-spend-medium: var(--spend-medium);
+  --color-spend-high: var(--spend-high);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -64,6 +67,15 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  /*
+   * Bands for the betting figure, on marks and on the hero number only.
+   * Held at >= 3:1 on white — the AA floor for large text and for graphics. Amber
+   * cannot go darker without turning brown, and cannot go lighter without
+   * dropping under the floor, so small text never wears these.
+   */
+  --spend-none: oklch(0.56 0.15 150);
+  --spend-medium: oklch(0.66 0.17 80);
+  --spend-high: var(--destructive);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -99,6 +111,9 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --spend-none: oklch(0.75 0.16 150);
+  --spend-medium: oklch(0.82 0.13 80);
+  --spend-high: var(--destructive);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -121,11 +136,50 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    /* Smooth scrolling for the page and for nested scrollers such as the sidebar. */
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      scroll-behavior: auto;
+    }
   }
   body {
     @apply bg-background text-foreground;
   }
   html {
     @apply font-sans;
+    /* Sticky headers are 3.5rem tall; keep anchor targets clear of them. */
+    scroll-padding-top: 4.5rem;
+  }
+  /*
+   * Browsers give `<button>` an arrow cursor, not a pointer — only `<a href>` gets
+   * the hand — and Tailwind's preflight does not override that. Almost every
+   * control here is a button or an ARIA widget rather than a link, so without this
+   * rule the app reads as unclickable. Declared once: a control that looks
+   * clickable and does not say so is a usability bug, not a per-screen detail.
+   *
+   * Utilities outrank `base`, so a component's own `cursor-*` class still wins.
+   */
+  button:not(:disabled),
+  summary,
+  label[for],
+  [role='button'],
+  [role='option'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='menuitemcheckbox'],
+  [role='menuitemradio'],
+  [role='checkbox'],
+  [role='radio'],
+  [role='switch'] {
+    cursor: pointer;
+  }
+
+  /* A disabled control should say why it is not responding, not stay silent. */
+  button:disabled,
+  [aria-disabled='true'],
+  [data-disabled] {
+    cursor: not-allowed;
   }
 }

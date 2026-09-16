@@ -65,6 +65,15 @@ const NAV_GROUPS: readonly NavGroup[] = [
   },
 ];
 
+/**
+ * A nav entry owns its sub-routes: `/transactions/insights` is still Transações,
+ * and an exact match would leave the whole sidebar unhighlighted while the reader
+ * is plainly inside a section.
+ */
+function isCurrentSection(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function AppSidebar() {
   const pathname = usePathname();
   const { state, isMobile } = useSidebar();
@@ -90,7 +99,7 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === item.href}
+                      isActive={isCurrentSection(pathname, item.href)}
                       tooltip={item.label}
                     >
                       <Link href={item.href}>
