@@ -5,14 +5,21 @@
  * `container.listTransactions.execute({ userId, period })`. Nothing here may
  * become business logic — it is display data and nothing else.
  *
- * Kept deliberately consistent with `../dashboard/_mock-snapshot.ts`: the eleven
- * betting entries inside the last 30 days sum to R$ 1.840,00, which is the
- * monthly figure the dashboard hero shows. Change one and change the other.
+ * This month's entries are authored by hand; every earlier month's betting is
+ * generated from `./insights/_mock-monthly-history.ts` so the two fixtures cannot
+ * drift. The invariant is **per calendar month**: each month's bets here sum to
+ * that month's figure there, and the current month is the R$ 1.840,00 the
+ * dashboard hero shows.
+ *
+ * A rolling window is not a calendar month, so "últimos 30 dias" legitimately
+ * reads higher than "neste mês" — it reaches back into the previous month. Both
+ * labels say which they mean; do not try to make the two numbers equal.
  *
  * Entries are authored as offsets from a reference day rather than as absolute
  * dates so that "Hoje" and "Ontem" stay true whenever the demo is opened.
  */
 import type { LedgerEntry, PaymentMethod } from './_ledger-entry';
+import { MONTHLY_HISTORY } from './insights/_mock-monthly-history';
 
 type LedgerEntryDraft = Omit<LedgerEntry, 'id' | 'occurredAt'> & {
   readonly daysAgo: number;
@@ -355,17 +362,6 @@ const DRAFTS: readonly LedgerEntryDraft[] = [
     status: 'SETTLED',
   },
   {
-    daysAgo: 34,
-    at: '22:48',
-    counterparty: 'Blaze',
-    category: 'Apostas',
-    accountId: 'andorinha-checking',
-    method: 'PIX',
-    amountInCents: -30_000,
-    status: 'SETTLED',
-    bet: { matchedBy: 'GAMBLING_MCC', confidence: 'HIGH' },
-  },
-  {
     daysAgo: 37,
     at: '09:00',
     counterparty: 'Salário',
@@ -384,17 +380,6 @@ const DRAFTS: readonly LedgerEntryDraft[] = [
     method: 'DIRECT_DEBIT',
     amountInCents: -140_000,
     status: 'SETTLED',
-  },
-  {
-    daysAgo: 41,
-    at: '21:33',
-    counterparty: 'Bet365',
-    category: 'Apostas',
-    accountId: 'andorinha-checking',
-    method: 'PIX',
-    amountInCents: -18_000,
-    status: 'SETTLED',
-    bet: { matchedBy: 'GAMBLING_MCC', confidence: 'HIGH' },
   },
   {
     daysAgo: 44,
@@ -424,9 +409,83 @@ function toOccurredAt(reference: Date, draft: LedgerEntryDraft): string {
   return day.toISOString();
 }
 
+/**
+ * Bookmakers the generated history cycles through, with how each would be caught.
+ */
+const HISTORICAL_BOOKMAKERS = [
+  { counterparty: 'Bet365', matchedBy: 'GAMBLING_MCC', confidence: 'HIGH' },
+  { counterparty: 'Betano', matchedBy: 'LICENSED_CNPJ', confidence: 'HIGH' },
+  { counterparty: 'Blaze', matchedBy: 'GAMBLING_MCC', confidence: 'HIGH' },
+  { counterparty: 'Sportingbet', matchedBy: 'GAMBLING_MCC', confidence: 'HIGH' },
+] as const satisfies readonly {
+  counterparty: string;
+  matchedBy: NonNullable<LedgerEntry['bet']>['matchedBy'];
+  confidence: NonNullable<LedgerEntry['bet']>['confidence'];
+}[];
+
+/** Rounded to R$ 5,00 so the generated amounts look authored rather than computed. */
+const AMOUNT_STEP_IN_CENTS = 500;
+const MAXIMUM_ENTRIES_PER_MONTH = 6;
+const CENTS_PER_ENTRY = 35_000;
+
+/**
+ * Splits a month's betting total into plausible individual amounts that sum to it
+ * **exactly** — the remainder lands on the first entry rather than being rounded
+ * away, because a screen that adds these up must reach the same number the charts
+ * show for that month.
+ */
+function splitMonthTotal(totalInCents: number): readonly number[] {
+  const count = Math.min(
+    MAXIMUM_ENTRIES_PER_MONTH,
+    Math.max(1, Math.round(totalInCents / CENTS_PER_ENTRY)),
+  );
+  const base = Math.floor(totalInCents / count / AMOUNT_STEP_IN_CENTS) * AMOUNT_STEP_IN_CENTS;
+  if (base === 0) return [totalInCents];
+
+  const amounts = Array.from({ length: count }, () => base);
+  amounts[0] += totalInCents - base * count;
+  return amounts;
+}
+
+/**
+ * Betting entries for every month before this one, derived from
+ * `MONTHLY_HISTORY` so the two fixtures cannot drift: the statement, the charts
+ * and the Apostas screen all add up to the same monthly figures.
+ *
+ * Deterministic on purpose — no clock, no randomness beyond the reference month —
+ * so the demo looks identical on every load and in every screenshot. Evening hours
+ * because that is the pattern the recent, hand-authored month already shows.
+ */
+function buildHistoricalBets(reference: Date): readonly LedgerEntry[] {
+  return MONTHLY_HISTORY.filter((month) => month.monthsAgo > 0 && month.bets > 0).flatMap((month) =>
+    splitMonthTotal(month.bets).map((amountInCents, index) => {
+      const bookmaker = HISTORICAL_BOOKMAKERS[index % HISTORICAL_BOOKMAKERS.length];
+      const occurredAt = new Date(
+        reference.getFullYear(),
+        reference.getMonth() - month.monthsAgo,
+        Math.min(4 + index * 5, 28),
+        20 + (index % 4),
+        (index * 13) % 60,
+      );
+
+      return {
+        id: `history-${month.monthsAgo}-${index}`,
+        occurredAt: occurredAt.toISOString(),
+        counterparty: bookmaker.counterparty,
+        category: 'Apostas',
+        accountId: 'andorinha-checking',
+        method: 'PIX',
+        amountInCents: -amountInCents,
+        status: 'SETTLED',
+        bet: { matchedBy: bookmaker.matchedBy, confidence: bookmaker.confidence },
+      } satisfies LedgerEntry;
+    }),
+  );
+}
+
 /** Newest first — the order every statement screen shows. */
 export function buildLedgerEntries(reference: Date): readonly LedgerEntry[] {
-  return DRAFTS.map((draft, index) => ({
+  const authored = DRAFTS.map((draft, index) => ({
     id: `entry-${index + 1}`,
     occurredAt: toOccurredAt(reference, draft),
     counterparty: draft.counterparty,
@@ -437,4 +496,8 @@ export function buildLedgerEntries(reference: Date): readonly LedgerEntry[] {
     status: draft.status,
     ...(draft.bet ? { bet: draft.bet } : {}),
   }));
+
+  return [...authored, ...buildHistoricalBets(reference)].toSorted((left, right) =>
+    right.occurredAt.localeCompare(left.occurredAt),
+  );
 }

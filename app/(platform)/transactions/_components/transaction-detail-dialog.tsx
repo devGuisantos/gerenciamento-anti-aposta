@@ -23,6 +23,7 @@ import {
 } from '../_detection';
 import type { BetClassification } from '../_ledger-entry';
 import { toYieldEquivalentInCents, type LedgerRow } from '../_ledger-view';
+import { ReclassifyAction } from './reclassify-action';
 
 const STATUS_LABELS = {
   SETTLED: 'Concluída',
@@ -142,6 +143,8 @@ function BetExplanation({
         Identificamos esta transação depois que ela aconteceu. A plataforma lê os dados
         compartilhados por você; ela não interrompe nem bloqueia pagamentos.
       </p>
+
+      <ReclassifyAction />
     </div>
   );
 }

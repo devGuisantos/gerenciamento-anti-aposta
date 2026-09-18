@@ -63,6 +63,11 @@ Consequences for new UI:
 
 - Use tokens and nothing else, and both themes come out right for free. A hard-coded colour is now
   a bug in one of the two themes, guaranteed.
+- **Tokens are not automatically distinct from each other.** In the light theme `--background` and
+  `--card` are both pure white, so a `bg-background` panel inside a `Card` is invisible there while
+  looking correct in dark mode, where they differ. For a surface that has to read as raised or
+  inset on a card, use `bg-muted` — it separates in both themes. `bg-background` is only for things
+  sitting on the page itself, like the sticky day header and the app header.
 - Never read the resolved theme during render to pick an icon or a class — it mismatches on
   hydration. Render both states and swap them with `dark:` classes, as `ThemeToggle` does.
 

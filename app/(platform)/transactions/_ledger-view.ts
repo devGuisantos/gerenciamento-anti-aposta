@@ -41,10 +41,14 @@ export type LedgerRow = Omit<LedgerEntry, 'occurredAt' | 'method' | 'accountId'>
   readonly methodLabel: string;
   /** Whole calendar days between the entry and the reference day. */
   readonly daysAgo: number;
+  /** 0-23, resolved here so no client has to parse a label back into a time. */
+  readonly hourOfDay: number;
   /** Stable `YYYY-MM-DD` key the list groups on. */
   readonly dayKey: string;
   readonly dayLabel: string;
   readonly timeLabel: string;
+  /** "07 de agosto de 2026" — the date on its own, where a time would be noise. */
+  readonly dateLabel: string;
   readonly fullDateLabel: string;
 };
 
@@ -96,16 +100,19 @@ function toRow(entry: LedgerEntry, reference: Date): LedgerRow {
   const occurredAt = new Date(entry.occurredAt);
   const daysAgo = countDaysAgo(occurredAt, reference);
   const timeLabel = TIME_FORMAT.format(occurredAt);
+  const dateLabel = FULL_DATE_FORMAT.format(occurredAt);
 
   return {
     ...entry,
     account: CONNECTED_ACCOUNTS[entry.accountId],
     methodLabel: METHOD_LABELS[entry.method],
     daysAgo,
+    hourOfDay: occurredAt.getHours(),
     dayKey: toDayKey(occurredAt),
     dayLabel: toDayLabel(occurredAt, daysAgo),
     timeLabel,
-    fullDateLabel: `${FULL_DATE_FORMAT.format(occurredAt)} às ${timeLabel}`,
+    dateLabel,
+    fullDateLabel: `${dateLabel} às ${timeLabel}`,
   };
 }
 

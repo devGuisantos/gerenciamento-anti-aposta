@@ -91,6 +91,10 @@ Rules this screen establishes:
   with the diacritics.
 - **Progressive disclosure.** The row shows the badge and the matching policy; the detail dialog
   carries the explanation, the confidence and the reframing. Do not crowd the row with it.
+- **The correction button is an affordance, not a feature.** `ReclassifyAction` in the transaction
+  detail says on click that it changes nothing, and its TODO names the command, the event, and
+  everything that has to recompute when it lands. Never let it fake a success state: somebody who
+  believes they corrected a number that is still wrong is worse off than with no button.
 - **Uncertainty is visible.** A `LOW`-confidence match renders "Possível aposta" in an outline
   badge, never the flat "Aposta" — `bet-detection` reports the lowest confidence of the policies
   that agreed, and the UI must not launder that into a certainty.
@@ -100,10 +104,28 @@ Rules this screen establishes:
   scale past a handful of accounts — if a third arrives, the words stay and the badge gives way.
 - **Account numbers are masked at the fixture**, never in the component. Only the last four digits
   exist in the app, so there is nothing to leak into a log or an RSC payload.
-- The fixture's eleven bets inside 30 days sum to the dashboard's monthly figure on purpose, and it
-  holds exactly the two accounts the snapshot counts. Change one and change the other.
+- **The fixtures agree per calendar month, not per rolling window.** This month's ledger entries
+  are authored; earlier months' bets are generated from `insights/_mock-monthly-history.ts`, and
+  each month sums to that month's figure. A "últimos 30 dias" total therefore reads higher than the
+  dashboard's "neste mês", because it reaches into the previous month — that is correct, and the
+  labels say which is which. The fixture also holds exactly the two accounts the snapshot counts.
 - `SelectValue` needs **explicit children**. Radix fills it from the selected item, and items only
   register once the portal opens — leave it empty and the trigger renders blank on the server.
+
+## `/bets` — the consumption reframing
+
+`AccumulatedCost` carries two reframings of the same total: fixed income answers "what would it
+have become", the `SpendingEquivalences` carousel answers "what would it have bought".
+
+- **Quantities are divided out of the real total, never written down.** An item the amount does not
+  cover is not shown. "1 carro" beside R$ 2.320,00 would discredit every other figure on the page.
+- **Two sources, kept apart.** Months of the reader's own grocery or rent bill come first and
+  invent nothing — the unit price is their own average and the detail line says so. The object
+  prices in `_equivalences.ts` are rounded estimates for the demo, which is why the card calls them
+  approximate. They belong in configuration before this is defensible.
+- **Auto-advance needs an off switch.** WCAG 2.2.2: anything moving on its own past five seconds
+  must be pausable. It stops on hover, on keyboard focus, and on a visible button, and never starts
+  for `prefers-reduced-motion`.
 
 ## The escalation path
 

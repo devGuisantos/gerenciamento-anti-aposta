@@ -113,7 +113,7 @@ export function InsightsDashboard({ referenceIso }: InsightsDashboardProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CategoryBreakdown slices={slices} animate={animate === true} />
+          <CategoryBreakdown slices={slices} />
         </CardContent>
       </Card>
     </div>

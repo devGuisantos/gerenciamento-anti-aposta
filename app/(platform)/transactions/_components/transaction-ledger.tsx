@@ -29,12 +29,19 @@ const DEFAULT_PERIOD: LedgerPeriod = 'LAST_30_DAYS';
 type TransactionLedgerProps = {
   /** Already sorted newest-first, with every date resolved to a label on the server. */
   readonly rows: readonly LedgerRow[];
+  /** Where the filters start, so another screen can link straight into a view. */
+  readonly initialFilter?: LedgerFilter;
+  readonly initialPeriod?: LedgerPeriod;
 };
 
-export function TransactionLedger({ rows }: TransactionLedgerProps) {
+export function TransactionLedger({
+  rows,
+  initialFilter = 'ALL',
+  initialPeriod = DEFAULT_PERIOD,
+}: TransactionLedgerProps) {
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<LedgerFilter>('ALL');
-  const [period, setPeriod] = useState<LedgerPeriod>(DEFAULT_PERIOD);
+  const [filter, setFilter] = useState<LedgerFilter>(initialFilter);
+  const [period, setPeriod] = useState<LedgerPeriod>(initialPeriod);
   const [account, setAccount] = useState<AccountFilter>('ALL');
   const [selectedRow, setSelectedRow] = useState<LedgerRow | null>(null);
 

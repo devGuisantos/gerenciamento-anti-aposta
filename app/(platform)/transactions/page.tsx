@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { SectionTabs } from './_components/section-tabs';
 import { TransactionLedger } from './_components/transaction-ledger';
-import { toLedgerRows } from './_ledger-view';
+import { toLedgerRows, type LedgerFilter, type LedgerPeriod } from './_ledger-view';
 import { buildLedgerEntries } from './_mock-ledger';
 
 export const metadata: Metadata = {
@@ -17,8 +17,32 @@ export const metadata: Metadata = {
  */
 export const dynamic = 'force-dynamic';
 
-export default function TransactionsPage() {
-  const rows = toLedgerRows(buildLedgerEntries(new Date()), new Date());
+/* Only the views another screen links into. An unknown value falls back to the
+   default rather than erroring: a bad query string is not worth a broken page. */
+const FILTERS: Readonly<Record<string, LedgerFilter>> = {
+  bets: 'BETS',
+  credits: 'CREDITS',
+  debits: 'DEBITS',
+};
+
+const PERIODS: Readonly<Record<string, LedgerPeriod>> = {
+  '30d': 'LAST_30_DAYS',
+  '90d': 'LAST_90_DAYS',
+  all: 'ALL_TIME',
+};
+
+function readParam<Value>(
+  raw: string | readonly string[] | undefined,
+  allowed: Readonly<Record<string, Value>>,
+): Value | undefined {
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  return typeof key === 'string' ? allowed[key] : undefined;
+}
+
+export default async function TransactionsPage({ searchParams }: PageProps<'/transactions'>) {
+  const { filter, period } = await searchParams;
+  const reference = new Date();
+  const rows = toLedgerRows(buildLedgerEntries(reference), reference);
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -32,7 +56,11 @@ export default function TransactionsPage() {
 
       <SectionTabs />
 
-      <TransactionLedger rows={rows} />
+      <TransactionLedger
+        rows={rows}
+        initialFilter={readParam(filter, FILTERS)}
+        initialPeriod={readParam(period, PERIODS)}
+      />
     </div>
   );
 }

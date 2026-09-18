@@ -1,16 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
+import { useEntrance } from '@/hooks/use-entrance';
 import { cn } from 'cn';
 import { formatBRL } from '@shared/ui/money-text';
 
 import type { CategorySlice } from '../_insights-view';
-
-type CategoryBreakdownProps = {
-  readonly slices: readonly CategorySlice[];
-  readonly animate: boolean;
-};
 
 /**
  * Ranked magnitude, so it is one series with a neutral fill rather than a colour
@@ -20,16 +14,8 @@ type CategoryBreakdownProps = {
  * Plain divs rather than a chart library: the marks are rectangles and the labels
  * sit in the row, so an SVG would add weight without adding anything to read.
  */
-export function CategoryBreakdown({ slices, animate }: CategoryBreakdownProps) {
-  /* Bars start collapsed and grow on the first frame after mount; once they have
-     arrived, later changes of window just transition to the new width. */
-  const [hasEntered, setHasEntered] = useState(!animate);
-
-  useEffect(() => {
-    if (!animate) return;
-    const frame = requestAnimationFrame(() => setHasEntered(true));
-    return () => cancelAnimationFrame(frame);
-  }, [animate]);
+export function CategoryBreakdown({ slices }: { readonly slices: readonly CategorySlice[] }) {
+  const hasEntered = useEntrance();
 
   return (
     <ul className="space-y-3">
