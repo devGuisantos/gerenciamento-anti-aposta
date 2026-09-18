@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Logo } from "@shared/ui/logo";
+import { SupportContacts } from "@shared/ui/support-contacts";
 import { ThemeToggle } from "@shared/ui/theme-toggle";
 
 const NAV_LINKS = [
@@ -67,21 +68,8 @@ export default function MarketingLayout({ children }: LayoutProps<"/">) {
           </div>
 
           <div className="space-y-2 text-sm">
-            <p className="font-medium">Precisa de ajuda agora?</p>
-            <p className="text-muted-foreground">
-              CVV — apoio emocional: <span className="text-foreground">188</span> (24h, gratuito)
-            </p>
-            <p className="text-muted-foreground">
-              Jogadores Anônimos:{" "}
-              <a
-                href="https://jogadoresanonimos.com.br"
-                className="text-foreground underline underline-offset-4"
-                rel="noreferrer noopener"
-                target="_blank"
-              >
-                jogadoresanonimos.com.br
-              </a>
-            </p>
+            <p className="font-medium">Precisa de ajuda agora? É gratuito e sigiloso:</p>
+            <SupportContacts />
           </div>
         </div>
 

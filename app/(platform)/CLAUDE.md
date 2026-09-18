@@ -105,6 +105,28 @@ Rules this screen establishes:
 - `SelectValue` needs **explicit children**. Radix fills it from the selected item, and items only
   register once the portal opens — leave it empty and the trigger renders blank on the server.
 
+## The escalation path
+
+The root `CLAUDE.md` requires that sustained betting surfaces support resources rather than more
+gamification. `SupportCard` on `/transactions/insights` is that path, and the rules it sets:
+
+- **The trigger is conservative on purpose.** `_support-signal.ts` needs three consecutive whole
+  months in the high band. A missed offer costs one screen; a false one tells somebody they may
+  have a problem they do not have, from an app that has only seen their bank statement. New
+  signals get their negative cases tested first.
+- **It reports what it counted and stops.** No diagnosis, no advice, no "você está gastando
+  demais". The copy names the months and the threshold; what that means is not the app's call.
+- **It is never styled as an alarm.** No red, no urgency, no animation. Red means a gambling
+  amount here; borrowing it to raise the temperature is the manufactured alarm the product rules
+  forbid. It reads as an offer because that is what it is.
+- **It renders on the server and hides after hydration** if dismissed — never the reverse. A
+  support line that waits for JavaScript is one some people never see.
+- **Dismissal lasts the session, not forever** (`sessionStorage`). Autonomy is the point of the
+  SDT framing, but a permanent hide would bury a crisis line behind one stray click.
+- **The contacts live in `@shared/ui/support-contacts`**, rendered by both the marketing footer and
+  this card. A support number that goes stale in one copy is a harm, not a style inconsistency —
+  never inline them again.
+
 ## `/transactions/insights` — the charts
 
 Transações is two pages behind one sidebar entry, switched by `SectionTabs`. A nav entry owns its

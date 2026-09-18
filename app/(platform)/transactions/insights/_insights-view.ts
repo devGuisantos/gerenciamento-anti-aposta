@@ -171,3 +171,13 @@ export function toMonthlyAverage(points: readonly MonthPoint[]): number {
   if (points.length === 0) return 0;
   return Math.round(sumSeries(points) / points.length);
 }
+
+/**
+ * Every month's betting total, newest first, regardless of the chosen window.
+ *
+ * The support offer must not appear and disappear as the reader changes the
+ * window — whether someone is shown a support line cannot depend on a filter.
+ */
+export function selectAllBetTotalsNewestFirst(): readonly number[] {
+  return MONTHLY_HISTORY.map((month) => month.bets);
+}

@@ -23,10 +23,13 @@ import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { cn } from 'cn';
 import { formatBRL } from '@shared/ui/money-text';
 
+import { SupportCard } from '../../_components/support-card';
 import { SPEND_LEVEL_CAPTIONS, SPEND_LEVEL_TEXT_CLASSES, toSpendLevel } from '../../_spend-level';
+import { toSupportSignal } from '../../_support-signal';
 import {
   METRICS,
   MONTH_WINDOWS,
+  selectAllBetTotalsNewestFirst,
   selectCategoryBreakdown,
   selectMonthlySeries,
   sumSeries,
@@ -62,6 +65,7 @@ export function InsightsDashboard({ referenceIso }: InsightsDashboardProps) {
   const average = toMonthlyAverage(points);
 
   const animate = useChartEntrance();
+  const supportSignal = useMemo(() => toSupportSignal(selectAllBetTotalsNewestFirst()), []);
 
   return (
     <div className="space-y-6">
@@ -72,6 +76,8 @@ export function InsightsDashboard({ referenceIso }: InsightsDashboardProps) {
         averageInCents={average}
         isBanded={isBanded}
       />
+
+      <SupportCard signal={supportSignal} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <MetricPicker metricId={metricId} onMetricChange={setMetricId} />

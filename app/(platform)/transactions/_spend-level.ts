@@ -20,7 +20,7 @@ export type SpendLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
 const MEDIUM_BAND_FLOOR_IN_CENTS = 10_000;
 
 /** R$ 1.000,00 — at or above this the figure is shown in the high band. */
-const HIGH_BAND_FLOOR_IN_CENTS = 100_000;
+export const HIGH_BAND_FLOOR_IN_CENTS = 100_000;
 
 /**
  * The same thresholds, for charts that draw them as reference lines. Exported
