@@ -18,11 +18,12 @@ export const SNAPSHOT = {
   twelveMonthYieldInCents: 204_976,
   betFreeStreakDays: 3,
   bestStreakDays: 11,
-  goal: {
-    label: 'Guardar R$ 500,00 até o fim do mês',
-    targetInCents: 50_000,
-    savedInCents: 18_000,
-  },
+  /* The goal lives in `../goals/_mock-goals.ts` and its progress is measured
+     against the monthly totals, never written down here. An earlier version held
+     a `savedInCents` figure, which was a number nothing could verify: the
+     platform reads a bank statement, and it cannot see money somebody meant to
+     put aside. A progress bar filled from a figure like that is a progress bar
+     that lies. */
 } as const;
 
 export type TransactionRow = {

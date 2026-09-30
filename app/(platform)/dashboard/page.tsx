@@ -22,6 +22,14 @@ import { Separator } from '@/components/ui/separator';
 import { MoneyText, formatBRL } from '@shared/ui/money-text';
 
 import {
+  describeCycleMargin,
+  selectCycles,
+  type GoalCycle,
+  type MonthlyBetTotal,
+} from '../goals/_goals-view';
+import { GOALS } from '../goals/_mock-goals';
+import { MONTHLY_HISTORY } from '../transactions/insights/_mock-monthly-history';
+import {
   FIXED_INCOME_ANNUAL_RATE,
   RECENT_TRANSACTIONS,
   SNAPSHOT,
@@ -33,13 +41,21 @@ export const metadata: Metadata = {
   description: 'Seu panorama financeiro e o custo real das apostas.',
 };
 
+/** The goal card reads the month under way, and which month that is changes daily. */
+export const dynamic = 'force-dynamic';
+
 const ratePercent = (FIXED_INCOME_ANNUAL_RATE * 100)
   .toFixed(1)
   .replace('.', ',');
 
+const MONTHS: readonly MonthlyBetTotal[] = MONTHLY_HISTORY.map((month) => ({
+  monthsAgo: month.monthsAgo,
+  betsInCents: month.bets,
+}));
+
 export default function DashboardPage() {
-  const goalProgress = Math.round(
-    (SNAPSHOT.goal.savedInCents / SNAPSHOT.goal.targetInCents) * 100,
+  const currentCycle = selectCycles(GOALS, MONTHS, new Date()).find(
+    (cycle) => cycle.monthsAgo === 0,
   );
 
   return (
@@ -98,30 +114,7 @@ export default function DashboardPage() {
         </Card>
 
         <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sua meta</CardTitle>
-              <CardDescription>{SNAPSHOT.goal.label}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-baseline justify-between">
-                <span className="font-heading text-xl font-semibold tracking-tight">
-                  {formatBRL(SNAPSHOT.goal.savedInCents)}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  de {formatBRL(SNAPSHOT.goal.targetInCents)}
-                </span>
-              </div>
-              <Progress value={goalProgress} aria-label="Progresso da meta" />
-              <p className="text-xs text-muted-foreground">
-                {goalProgress}% do caminho. Você definiu esta meta — pode mudá-la
-                quando quiser.
-              </p>
-              <Button asChild variant="outline" size="sm" className="h-9 w-full">
-                <Link href="/goals">Ajustar meta</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <GoalCard cycle={currentCycle} />
 
           <Card>
             <CardHeader>
@@ -192,6 +185,70 @@ function BetSpendHero() {
             . Não é uma garantia de retorno.
           </p>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * The goal in one card: the month's betting against the ceiling the user set.
+ *
+ * Progress is measured, never reported — the figure comes from the same monthly
+ * totals `/goals` reads, so the two screens cannot show different progress on the
+ * same goal.
+ */
+function GoalCard({ cycle }: { readonly cycle: GoalCycle | undefined }) {
+  if (!cycle) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Sua meta</CardTitle>
+          <CardDescription>
+            Você ainda não definiu um teto de gastos com apostas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" size="sm" className="h-9 w-full">
+            <Link href="/goals">Definir uma meta</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const isOverCeiling = cycle.marginInCents < 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Sua meta</CardTitle>
+        <CardDescription>
+          No máximo {formatBRL(cycle.ceilingInCents)} por mês · {cycle.destination}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          {/* A betting amount, so it takes red here for the same reason it does in
+              the hero above — and the line under it names what it is. */}
+          <span className="font-heading text-xl font-semibold tracking-tight text-destructive">
+            {formatBRL(cycle.spentInCents)}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            de {formatBRL(cycle.ceilingInCents)}
+          </span>
+        </div>
+        <Progress
+          value={Math.min(cycle.usedPercentage, 100)}
+          aria-label={`Gasto com apostas neste mês, contra o teto de ${formatBRL(cycle.ceilingInCents)}`}
+          className={isOverCeiling ? '*:data-[slot=progress-indicator]:bg-destructive' : undefined}
+        />
+        <p className="text-xs text-muted-foreground">
+          {describeCycleMargin(cycle)} neste mês. Você definiu este teto — pode
+          mudá-lo quando quiser.
+        </p>
+        <Button asChild variant="outline" size="sm" className="h-9 w-full">
+          <Link href="/goals">Ver metas</Link>
+        </Button>
       </CardContent>
     </Card>
   );

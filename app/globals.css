@@ -30,6 +30,11 @@
   --color-spend-none: var(--spend-none);
   --color-spend-medium: var(--spend-medium);
   --color-spend-high: var(--spend-high);
+  --color-celebration-1: var(--celebration-1);
+  --color-celebration-2: var(--celebration-2);
+  --color-celebration-3: var(--celebration-3);
+  --color-celebration-4: var(--celebration-4);
+  --color-celebration-5: var(--celebration-5);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -76,6 +81,23 @@
   --spend-none: oklch(0.56 0.15 150);
   --spend-medium: oklch(0.66 0.17 80);
   --spend-high: var(--destructive);
+  /*
+   * Confetti, and nothing else. The only decorative colour in the product, and it
+   * stays decorative: these never carry meaning, never appear on a figure, a mark,
+   * a badge or a state, and are `aria-hidden` wherever they render. See the rule in
+   * `app/CLAUDE.md`.
+   *
+   * Every hue is kept clear of `--destructive` (27) so a falling particle can never
+   * be mistaken for the one colour that does mean something here. Mid-dark in this
+   * theme to hold up against a white page; the `.dark` block lifts them instead.
+   */
+  /* Gold has to sit darker than it looks like it should: at the lightness that
+     reads as "gold" it falls under 3:1 on white and the particles go ghostly. */
+  --celebration-1: oklch(0.64 0.17 95);
+  --celebration-2: oklch(0.6 0.16 155);
+  --celebration-3: oklch(0.62 0.13 200);
+  --celebration-4: oklch(0.58 0.18 260);
+  --celebration-5: oklch(0.6 0.2 320);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -114,6 +136,12 @@
   --spend-none: oklch(0.75 0.16 150);
   --spend-medium: oklch(0.82 0.13 80);
   --spend-high: var(--destructive);
+  /* Lifted, because the same mid-dark tones disappear into a near-black page. */
+  --celebration-1: oklch(0.85 0.16 95);
+  --celebration-2: oklch(0.78 0.15 155);
+  --celebration-3: oklch(0.78 0.12 200);
+  --celebration-4: oklch(0.72 0.16 260);
+  --celebration-5: oklch(0.75 0.18 320);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
