@@ -127,6 +127,129 @@ have become", the `SpendingEquivalences` carousel answers "what would it have bo
   must be pausable. It stops on hover, on keyboard focus, and on a visible button, and never starts
   for `prefers-reduced-motion`.
 
+## `/goals` — two kinds of goal, deliberately kept apart
+
+The screen carries two things the user calls a meta, and they are **known in completely different
+ways**. Saying which is which is the screen's main job:
+
+| | Savings goals | Betting ceiling |
+| --- | --- | --- |
+| Source | the user records it | measured from transactions we read |
+| Files | `_savings-goal.ts`, `_savings-goals-store.ts`, `_actions.ts` | `_goal.ts`, `_mock-goals.ts` |
+| Can be wrong because | the user forgot to log a deposit | the classifier missed a bet |
+
+Never merge them into one figure, and never let savings copy borrow the certainty the ceiling has.
+
+## `/goals` — savings goals
+
+Self-reported, and every screen says so. Open Finance shows a statement; it does not show that a
+transfer was *meant* as savings and never sees cash in a drawer. So the user records the movements
+and the app keeps the ledger — the honest version of a savings goal.
+
+- **The balance is summed from the movements, never stored.** A kept total and a list that
+  disagree would have the user believing the total, which is the one that would be wrong.
+- **The history is not a nice-to-have.** A balance with no history is an assertion: somebody who
+  logged the wrong amount has nothing to check against, and this is a number they are trusting us
+  to keep. It lives behind a dialog so the cards stay scannable on a phone.
+- **Withdrawal informs and then stops.** It carries the trade-off because the user asked to be
+  told, but with no warning colour, no "tem certeza?", no delay and no second confirmation.
+  Manufactured loss aversion is on the forbidden list, and somebody moving their own money back
+  into their own week may have a reason the app knows nothing about. `MOVEMENT_COPY` holds both
+  directions together so they stay parallel in tone.
+- **No red on a savings card, ever** — not even when a goal loses money. Red here means a gambling
+  amount; spending it on the user's own withdrawal makes the app pass judgement on a decision it
+  cannot see.
+- **`MovementDirection` is a union, not a boolean.** `recordMovement({ isDeposit: false })` reads
+  like nothing, and the direction has to survive into the copy, the icon and the history label.
+- **The confetti is the mechanic that comes closest to the forbidden list, so its limits are
+  load-bearing.** `GoalReachedConfetti` (Motion) fires on exactly one thing: the movement that
+  *crosses* a target the user set. The store decides that — `reachedNow`, a before/after
+  comparison, standing in for the `GoalReached` event — and the client never infers it, because a
+  celebration the browser talked itself into is a celebration for something that may not have
+  happened. What follows from the rules, and must not be "improved" later:
+  - No confetti on a deposit that does not finish the goal. Applause for participation is the
+    same bin as a badge nobody earned.
+  - No confetti on a deposit into an already-finished goal, and none on any withdrawal.
+  - **No near-miss.** It never plays at 90% and nothing teases it — a near-miss animation is the
+    precise effect a slot machine sells, and this product exists to oppose that psychology.
+  - Randomness decides how the particles fly, never *whether* they appear. A variable-ratio
+    celebration is a gambling loop with better manners.
+  - It carries **no information**: the toast and the card's "Alcançada" badge both say it, so
+    anyone who never sees it misses nothing. That is what lets it be skipped for
+    `prefers-reduced-motion` (WCAG 2.3.3) and marked `aria-hidden` / `pointer-events-none`.
+  - **The one place with decorative colour** (`bg-celebration-1` … `-5`), allowed only because it
+    encodes nothing and is `aria-hidden`; the hues stay clear of `--destructive` so a particle
+    never reads as a gambling amount. The tokens carry a light and a dark value each — `bg-chart-*`
+    would not work here, being fixed greys identical in both themes, so half of them would vanish
+    into one of the two backgrounds. Nothing outside this burst may use these tokens.
+  - Particles are built in the event handler (`createConfettiBurst`), never during render:
+    `Math.random()` in render is impure and React 19 may render twice and get two bursts. It
+    portals to `document.body` so no transformed ancestor can capture the `fixed` overlay, and
+    one particle's `onAnimationComplete` clears the burst so there is no timer to leak.
+- **The forms submit inside a `useTransition`, not `useActionState`,** so a dialog can close itself
+  on success without a `setState` in an effect — which React 19 lints, and which would close the
+  dialog a render later than it should.
+- **One regex literal backs both the input's `pattern` and the action's schema** (`AMOUNT_PATTERN`,
+  read through `.source`). Written as a string it needs doubled backslashes, and a single one turns
+  `\d` into the letter `d`: a pattern that compiles, looks right, and silently matches "ddd"
+  instead of "250". That exact bug shipped here once and was caught only by exercising the action.
+- **Amounts are `type="text"` with `inputMode="decimal"`**, never `type="number"`: this audience
+  writes "250,50", and a number input in a pt-BR browser can hand the server an empty string for a
+  comma it decided not to parse.
+- **Server Actions are public POST endpoints and these have no caller check yet.** Each one carries
+  a `TODO(identity)` naming `requireSession()`; the store holds one shared set of goals because
+  there is no user to key them by. Safe on a demo laptop, not shippable. The Zod parse is not the
+  missing part — that is there, and an action re-checks every bound the form already enforced.
+- `_savings-goals-store.ts` is an in-process stand-in with the same limitations
+  `notifications/infrastructure/demo-broker.ts` documents: one Node process, no restart survival,
+  reset by an edit in `next dev`. The over-withdrawal check in it is an **aggregate invariant**
+  wearing a store's clothes — it moves into `Goal` with its negative case tested first.
+
+## `/goals` — the betting ceiling
+
+A goal here is a **monthly ceiling on betting spend**, plus what the user said the money is for.
+Both halves come from them, which is the autonomy half of the SDT mapping; the months behind them
+are the competence half. Its parts live in `goals/`:
+
+- `_goal.ts` is the ceiling shape, mirroring `gamification`'s `Goal`. It carries the month it was
+  set in and the month it was replaced, so the ceiling can change without rewriting history.
+- `_goals-view.ts` derives the monthly outcomes and holds the simulation. Pure, and it takes its
+  months as an argument — `page.tsx` is the only file that knows where the numbers come from.
+- `_mock-goals.ts` holds two goals rather than one, because the user changed their mind.
+
+Rules this screen establishes:
+
+- **A goal is only ever measured against what the platform can see.** The ceiling is checked
+  against transactions that were already read, so nothing on the screen depends on the user
+  telling us something unverifiable. The dashboard's old `savedInCents` was exactly that, and it
+  is gone: we see a bank statement, not a deposit somebody meant to make, and a progress bar
+  filled from a figure like that is a progress bar that lies. `destination` is a statement of
+  intent and never a balance — **no copy may suggest the platform moves money.**
+- **The hero is the spend, not the target.** Same reason as the dashboard: a goal screen that
+  leads with the target lets the reader look away from the number the product exists to show them.
+- **A month past its ceiling is reported, then pointed at the next one.** Neutral wording, the
+  ceiling restarts, and the earlier months stay on the screen — the same treatment a broken streak
+  gets. `CycleStatusBadge` names the outcome in words first; red appears only on `MISSED`, and
+  only because what sits above the ceiling is itself a betting amount.
+- **Months before the first goal have no cycle.** Measuring them against a ceiling the user had
+  not chosen invents a failure they never agreed to.
+- **Closed months only, everywhere it matters.** The open month is half a month: it is the hero,
+  never a row in the record and never an input to the simulation, which would understate every
+  ceiling tried. There is deliberately **no month-end projection** — the fixture's current month
+  is a whole-month figure, so a pace estimate would be a fixture artefact wearing a forecast's
+  clothes. Days remaining is a fact and says enough.
+- **The simulator answers in counts and differences, never in advice.** It does not recommend a
+  value and it does not claim the money would have gone somewhere better — the person may well
+  have spent it on something else, and a screen that pretends otherwise sells a regret instead of
+  reporting a number. It changes nothing until `SetCeilingAction` lands; that button says so.
+- **A slider announces its raw value**, so the control works in whole reais and restores cents on
+  the way out — "1200" is sayable, "120000" is not. Its visible caption is a `<p>`, not a
+  `<label htmlFor>`: the focusable element is a thumb inside the primitive, so there is nothing
+  for a `for` to point at. The accessible name repeats the caption and adds the unit (WCAG 2.5.3).
+  **Local change to `components/ui/slider.tsx`:** the preset spreads every prop onto the root span
+  and leaves the thumb — the element with `role="slider"` — unnamed, so the wrapper now forwards
+  `aria-label`/`aria-labelledby` to it. Keep that on re-add.
+
 ## The escalation path
 
 The root `CLAUDE.md` requires that sustained betting surfaces support resources rather than more
