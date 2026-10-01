@@ -25,6 +25,12 @@ CNPJ, account numbers, tokens, transaction descriptions) is ever logged.
 ## `ui/`
 
 **Our** components, composed from the shadcn primitives in `components/ui/` and named after the
-domain: `Logo`, `MoneyText`, `NudgeCard`, `StreakBadge`. Domain-aware presentation belongs here.
+domain: `Logo`, `MoneyText`, `NudgeCard`, `StreakBadge`, `MilestoneConfetti`. Domain-aware presentation belongs here.
+`MilestoneConfetti` is here for a reason worth stating, since this folder is a privilege: two
+different events in two different route groups celebrate — `GoalReached` on `/goals` and
+`BadgeAwarded` through the notification stream — and a celebration that drifts into two slightly
+different versions is a celebration nobody can reason about. Its limits are load-bearing product
+rules, not styling, so there is exactly one of it.
+
 Anything that formats currency goes through the same `Intl.NumberFormat('pt-BR')` helper — money
 formatted two different ways on one screen reads as a bug in a finance app.

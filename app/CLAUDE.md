@@ -78,7 +78,8 @@ Consequences for new UI:
 - **Red (`text-destructive`) is reserved** for gambling amounts and genuinely negative signals. It
   is the only colour in the product that *means* anything, which is exactly what gives it force.
 - **One exception, and it is decorative by definition:** `--celebration-1` … `--celebration-5`
-  exist for the goal-reached confetti. They are allowed to be colourful precisely because they
+  exist for the milestone confetti (`@shared/ui/milestone-confetti`, fired by a reached savings
+  goal and by an awarded badge, and by nothing else). They are allowed to be colourful precisely because they
   encode nothing — `aria-hidden`, repeating what a toast already said, gone in two seconds. Every
   hue is kept clear of `--destructive` so a particle can never read as a gambling amount. Do not
   reach for these anywhere else: the moment colour appears on a figure, a badge or a state, red

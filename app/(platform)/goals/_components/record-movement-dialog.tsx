@@ -15,17 +15,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
+import {
+  createConfettiBurst,
+  MilestoneConfetti,
+  type ConfettiBurst,
+} from '@shared/ui/milestone-confetti';
 import { formatBRL } from '@shared/ui/money-text';
 
 import { recordMovementAction } from '../_actions';
 import type { MovementDirection } from '../_savings-goal';
 import { AmountField } from './amount-field';
 import { FormError } from './form-error';
-import {
-  createConfettiBurst,
-  GoalReachedConfetti,
-  type ConfettiBurst,
-} from './goal-reached-confetti';
 
 type MovementCopy = {
   readonly triggerLabel: string;
@@ -119,7 +119,7 @@ export function RecordMovementDialog({
 
   return (
     <>
-      <GoalReachedConfetti burst={burst} onFinished={() => setBurst(null)} />
+      <MilestoneConfetti burst={burst} onFinished={() => setBurst(null)} />
       <Dialog
         open={isOpen}
         onOpenChange={(open) => {

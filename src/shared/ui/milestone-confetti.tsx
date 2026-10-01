@@ -4,29 +4,42 @@ import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 
 /**
- * A one-off burst for a goal the user actually finished.
+ * A one-off burst for a milestone the user actually reached.
+ *
+ * Two events earn it and no others: `GoalReached`, the movement that *crosses* a
+ * savings target the user set, and `BadgeAwarded`, a badge the platform just
+ * granted. It lives in the shared kernel because both of those belong to
+ * different screens and a celebration that drifts into two slightly different
+ * versions is a celebration nobody can reason about.
  *
  * The gamification rules forbid any mechanic that imitates a gambling loop, and
  * this is the mechanic that comes closest, so the boundaries are worth stating:
  *
- * - **It is fully predictable.** It fires on one thing — the movement that crosses
- *   a target the user set themselves — and never on a deposit that does not. No
- *   variable ratio, nothing random about *whether* it appears. Only the particle
- *   physics is randomised, and that decides how it looks, never whether it comes.
- * - **There is no near-miss.** It never plays at 90%, and nothing on the screen
+ * - **It is fully predictable.** It fires on a milestone that was reached, and
+ *   never on progress toward one. No variable ratio, nothing random about
+ *   *whether* it appears. Only the particle physics is randomised, and that
+ *   decides how it looks, never whether it comes.
+ * - **There is no near-miss.** It never plays at 90%, and nothing on any screen
  *   teases it. A near-miss animation is the exact effect a slot machine sells.
- * - **It is not a reward for playing.** Reaching a goal is the milestone; putting
- *   money in is not. Confetti on every deposit would be participation applause,
- *   which the rules put in the same bin as a badge nobody earned.
- * - **It carries no information.** Everything it says is also said by the toast and
- *   by the card's "Alcançada" badge, so nobody who never sees it misses anything.
+ * - **It is not a reward for playing.** Reaching the milestone is the milestone;
+ *   putting money in or opening the app is not. Confetti on every deposit would
+ *   be participation applause, which the rules put in the same bin as a badge
+ *   nobody earned.
+ * - **It carries no information.** Everything it says is also said by the toast,
+ *   the dialog or the card beside it, so nobody who never sees it misses
+ *   anything. That is what lets it be skipped entirely for anyone who asked their
+ *   system for less motion (WCAG 2.3.3) — callers gate it, by handing `burst` as
+ *   `null`.
+ * - **It never fires on a page load.** A burst for something that happened three
+ *   weeks ago is applause for nothing having occurred. Callers create the burst in
+ *   the handler for the event itself.
  *
  * This is the one place in the product with decorative colour, and it is allowed
- * here precisely because it means nothing: it is `aria-hidden`, it repeats what the
- * toast already said, and it is gone in two seconds. Nothing else may reach for
- * these tokens — the monochrome palette is what gives `--destructive` its force,
- * and the celebration hues are kept well clear of it so a falling particle can
- * never read as a gambling amount.
+ * here precisely because it means nothing: it is `aria-hidden`, it repeats what
+ * its caller already said in words, and it is gone in two seconds. Nothing else
+ * may reach for these tokens — the monochrome palette is what gives
+ * `--destructive` its force, and the celebration hues are kept well clear of it so
+ * a falling particle can never read as a gambling amount.
  */
 
 const PARTICLE_COUNT = 70;
@@ -113,23 +126,26 @@ export function createConfettiBurst(): ConfettiBurst {
   };
 }
 
-type GoalReachedConfettiProps = {
+type MilestoneConfettiProps = {
   readonly burst: ConfettiBurst | null;
   readonly onFinished: () => void;
 };
 
-export function GoalReachedConfetti({ burst, onFinished }: GoalReachedConfettiProps) {
+export function MilestoneConfetti({ burst, onFinished }: MilestoneConfettiProps) {
   /* Nothing is rendered on the server, which is also what makes the portal safe. */
   if (burst === null) return null;
 
   return createPortal(
     /* Decoration only, and it must never be in the way: `aria-hidden` because the
-       toast already carries the message, and `pointer-events-none` so the page
-       underneath stays usable while it falls. */
+       caller already carries the message in words, and `pointer-events-none` so
+       the page underneath stays usable while it falls. */
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-0 z-50 overflow-hidden"
-      data-slot="goal-reached-confetti"
+      /* Above the dialog layer: a badge is celebrated from inside a modal, and at
+         z-50 the burst would fall behind its overlay and be dimmed and blurred
+         by it. Nothing else in the product sits this high. */
+      className="pointer-events-none fixed inset-0 z-[60] overflow-hidden"
+      data-slot="milestone-confetti"
     >
       {burst.particles.map((particle, index) => (
         <Particle

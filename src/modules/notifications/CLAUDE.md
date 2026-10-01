@@ -39,5 +39,16 @@ When the real module lands, the events that today arrive from a button should ar
   (PII) and never a token.
 - Notifications are never sent at a frequency that becomes harassment. One nudge per detected
   transaction; aggregate rather than repeat.
+- **Two kinds interrupt and two do not, and which is which is a product decision.** An awareness
+  nudge opens a modal because §4.1 is built on it interrupting. An awarded badge opens one too —
+  `BadgeAwardedDialog`, with the milestone confetti — because a badge is rare (eleven exist) and the
+  celebration is the competence half of the SDT mapping, which a toast that fades in four seconds
+  cannot carry. A **broken streak is never a modal**: it is a quiet toast and the counter restarts.
+  Celebrating in a modal while reporting a setback in passing is the no-shaming rule expressed as a
+  layout decision, and inverting it would make the product punish.
+- A `badge-awarded` payload carries `badgeId` and lets the client read the mark and the criterion
+  from the catalogue in `app/(platform)/achievements/_badge.ts`. An id the catalogue does not know
+  still renders, from the payload’s own `title` and `description` — a notification must never be
+  able to blank a dialog.
 - The inbox is the source of truth. The stream is an optimisation, so a missed connection must
   never mean a missed nudge.
