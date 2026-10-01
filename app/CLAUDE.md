@@ -46,11 +46,50 @@ export async function revokeConsentAction(formData: FormData) {
   `className="h-10"` on primary form controls and hero CTAs.
 - Every input has a real `<Label htmlFor>`, an `autoComplete`, and native validation attributes.
 
-## Palette — neutral, monochrome
+## Palette — one brand hue, everything else earns its colour
 
-The default shadcn `neutral` palette in `app/globals.css`: grayscale surfaces and text, light theme
-with a `.dark` block. A branded palette (coffee/creme/azul) was tried and rejected — do not
-reintroduce decorative colour.
+Tinted neutrals plus **a single brand hue at OKLCH 255** (blue), defined in `app/globals.css`.
+An earlier version was pure greyscale; before that a three-colour brand (coffee/creme/azul) was
+tried and rejected. This is the middle position and it holds only because of the division below.
+
+**Why 255, and why only one hue.** Every other hue in the file already means something: 27 is
+`--destructive` (a gambling amount), 80 is `--spend-medium`, 150 is `--spend-none`. A brand colour
+near any of those would look like it was reporting something and would not be. Blue is the only
+family left — and it is also the safest against red for colour-blind readers: measured at ΔE 26
+under protanopia with `scripts/validate_palette.js`, where red against amber manages 0.6.
+
+**The division that keeps red meaningful** — this is the rule, not the hue:
+
+- The brand hue appears on **brand and interaction only**: buttons, the logo mark, focus rings,
+  progress fills, the active nav item, an earned badge mark, tinted surfaces.
+- It **never lands on a figure, a status or a classification**. A number, a badge that reports an
+  outcome, a transaction row, a chart series that encodes a band — none of those may wear it.
+- **Red (`text-destructive`) stays reserved** for gambling amounts and genuinely negative signals.
+  It is still the only colour in the product that *means* anything, and the only reason that works
+  is that nothing competes with it for attention.
+- **`--spend-none` / `--spend-medium` / `--spend-high` are untouched** and still the only colours
+  allowed on the betting figure.
+- Raw Tailwind palette classes (`text-emerald-600`, `bg-sky-500`, …) remain **banned**. Use the
+  semantic tokens: `bg-primary`, `bg-background`, `bg-card`, `bg-muted`, `text-muted-foreground`,
+  `border-border`, `bg-accent`.
+- Hierarchy still comes from **type scale, weight, spacing and surface elevation**. The hue is not
+  a substitute for any of them; a screen that needs colour to be legible is a screen with a
+  layout problem.
+- Colour never carries meaning alone: every red amount is accompanied by a label or icon saying
+  what it is (the `Aposta` badge, the "Gasto com apostas" heading). Required for colour-blind
+  users, and non-negotiable.
+
+**One exception, decorative by definition:** `--celebration-1` … `--celebration-5` exist for the
+milestone confetti (`@shared/ui/milestone-confetti`, fired by a reached savings goal and by an
+awarded badge, and by nothing else). They are allowed to be colourful precisely because they encode
+nothing — `aria-hidden`, repeating what a dialog already said, gone in two seconds. Every hue is
+kept clear of `--destructive` so a particle can never read as a gambling amount. Do not reach for
+these anywhere else.
+
+**Every pair is measured, not eyeballed.** Both themes pass WCAG AA on body, muted, button,
+sidebar and accent text, and 3:1 on marks and focus rings. Changing a token means re-checking it —
+`--muted-foreground` on `--muted` passes at 4.57:1 in light mode, which is the tightest pair in the
+file and the one a casual darkening of the surface will break first.
 
 **Dark mode is live.** shadcn supplies the `.dark` tokens and the `dark:` variant; `next-themes`
 supplies the switching. `ThemeProvider` (`@shared/ui/theme-provider`) wraps the app in the root
@@ -63,30 +102,14 @@ Consequences for new UI:
 
 - Use tokens and nothing else, and both themes come out right for free. A hard-coded colour is now
   a bug in one of the two themes, guaranteed.
-- **Tokens are not automatically distinct from each other.** In the light theme `--background` and
-  `--card` are both pure white, so a `bg-background` panel inside a `Card` is invisible there while
-  looking correct in dark mode, where they differ. For a surface that has to read as raised or
-  inset on a card, use `bg-muted` — it separates in both themes. `bg-background` is only for things
-  sitting on the page itself, like the sticky day header and the app header.
+- **`--background` is tinted and `--card` is white**, so a card lifts off the page in light mode
+  the way it always did in dark. This used to be the other way round — both were pure white, which
+  made a `bg-background` panel inside a `Card` invisible in light mode while looking correct in
+  dark. That footgun is gone, but the advice that replaced it still stands: for a surface that must
+  read as *inset* on a card, use `bg-muted`, which separates in both themes. `bg-background` is for
+  things sitting on the page itself, like the sticky day header and the app header.
 - Never read the resolved theme during render to pick an icon or a class — it mismatches on
   hydration. Render both states and swap them with `dark:` classes, as `ThemeToggle` does.
-
-- Hierarchy comes from **type scale, weight, spacing and surface elevation**, not hue.
-- Raw Tailwind palette classes (`text-emerald-600`, `bg-sky-500`, …) are **banned**. Use the
-  semantic tokens: `bg-background`, `bg-card`, `bg-muted`, `text-muted-foreground`,
-  `border-border`.
-- **Red (`text-destructive`) is reserved** for gambling amounts and genuinely negative signals. It
-  is the only colour in the product that *means* anything, which is exactly what gives it force.
-- **One exception, and it is decorative by definition:** `--celebration-1` … `--celebration-5`
-  exist for the milestone confetti (`@shared/ui/milestone-confetti`, fired by a reached savings
-  goal and by an awarded badge, and by nothing else). They are allowed to be colourful precisely because they
-  encode nothing — `aria-hidden`, repeating what a toast already said, gone in two seconds. Every
-  hue is kept clear of `--destructive` so a particle can never read as a gambling amount. Do not
-  reach for these anywhere else: the moment colour appears on a figure, a badge or a state, red
-  stops being the thing the eye goes to, and that is the whole mechanism.
-- Colour never carries meaning alone: every red amount is accompanied by a label or icon saying
-  what it is (the `Aposta` badge, the "Gasto com apostas" heading). Required for colour-blind
-  users, and non-negotiable.
 
 ## Responsive — mobile and desktop, both first-class
 

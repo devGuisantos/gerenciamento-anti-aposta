@@ -33,7 +33,10 @@ export default function MarketingLayout({ children }: LayoutProps<"/">) {
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <ThemeToggle />
             <Button asChild variant="ghost" size="sm" className="h-9 md:h-8">
-              <Link href="/dashboard">Entrar</Link>
+              {/* Entrar goes to the sign-in screen, never straight into the app. It
+                  pointed at /dashboard, which skipped the door entirely and made the
+                  whole auth group unreachable from the header. */}
+              <Link href="/login">Entrar</Link>
             </Button>
             <Button asChild size="sm" className="h-9 md:h-8">
               <Link href="/register">Criar conta</Link>
