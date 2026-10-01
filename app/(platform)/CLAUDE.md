@@ -381,8 +381,10 @@ Charts are Recharts via the shadcn `chart` primitive. The rules that produced th
   measures together. A dual-axis chart invents a correlation that is not in the data, and two
   series would need a categorical palette this product does not have.
 - **No legend for a single series** — the card title already names what is plotted.
-- **The betting series is the only coloured one**, banded by `_spend-level.ts`. Everything else
-  uses `--chart-2`, the neutral mid-grey.
+- **The betting series is the only one whose colour *encodes* anything**, banded by
+  `_spend-level.ts`. Everything else uses `--chart-2`, a step of the brand ramp held at low chroma
+  so it belongs to the product without reading as a signal. It is deliberately below the
+  categorical chroma floor: it marks a series, it does not identify one.
 - **The bands are drawn, not just coloured.** `validate_palette.js` measures amber against red at
   ΔE 0.6 under protanopia — indistinguishable. So the betting chart draws reference lines at
   R$ 100 and R$ 1.000 (`BAND_FLOORS_IN_CENTS`, exported from the same file that picks the colour so
