@@ -22,12 +22,20 @@ import { Separator } from '@/components/ui/separator';
 import { MoneyText, formatBRL } from '@shared/ui/money-text';
 
 import {
+  describeStreakLength,
+  toBetDays,
+  toDataWindow,
+  toStreakRecord,
+} from '../achievements/_streak-view';
+import {
   describeCycleMargin,
   selectCycles,
   type GoalCycle,
   type MonthlyBetTotal,
 } from '../goals/_goals-view';
 import { GOALS } from '../goals/_mock-goals';
+import { toLedgerRows } from '../transactions/_ledger-view';
+import { buildLedgerEntries } from '../transactions/_mock-ledger';
 import { MONTHLY_HISTORY } from '../transactions/insights/_mock-monthly-history';
 import {
   FIXED_INCOME_ANNUAL_RATE,
@@ -53,9 +61,22 @@ const MONTHS: readonly MonthlyBetTotal[] = MONTHLY_HISTORY.map((month) => ({
   betsInCents: month.bets,
 }));
 
+/** How far back the statement data goes, which bounds the bet-free streak. */
+const OLDEST_MONTHS_AGO = Math.max(...MONTHLY_HISTORY.map((month) => month.monthsAgo));
+
 export default function DashboardPage() {
-  const currentCycle = selectCycles(GOALS, MONTHS, new Date()).find(
+  const reference = new Date();
+  const currentCycle = selectCycles(GOALS, MONTHS, reference).find(
     (cycle) => cycle.monthsAgo === 0,
+  );
+
+  /* Derived from the same ledger the statement renders, so this tile cannot claim
+     a bet-free day the extrato contradicts. `/achievements` holds the record it
+     is a summary of. */
+  const streaks = toStreakRecord(
+    toBetDays(toLedgerRows(buildLedgerEntries(reference), reference), reference),
+    toDataWindow(OLDEST_MONTHS_AGO, reference),
+    reference,
   );
 
   return (
@@ -88,8 +109,12 @@ export default function DashboardPage() {
         <StatTile
           icon={Flame}
           label="Dias sem apostar"
-          value={`${SNAPSHOT.betFreeStreakDays}`}
-          detail={`Sua melhor sequência foi de ${SNAPSHOT.bestStreakDays} dias`}
+          value={`${streaks.current.days}`}
+          detail={
+            streaks.longest
+              ? `Sua maior sequência foi de ${describeStreakLength(streaks.longest)}`
+              : 'Ainda não há uma sequência fechada'
+          }
         />
       </div>
 

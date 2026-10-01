@@ -120,7 +120,7 @@ export type MovementOutcome =
        * True only on the movement that **crossed** the target, never on one that
        * merely lands on an already-finished goal. Whatever celebrates this has to
        * fire once, for a milestone that was actually reached — see
-       * `GoalReachedConfetti`.
+       * `MilestoneConfetti`.
        *
        * TODO(gamification): this is where the `Goal` aggregate records
        * `GoalReached`. The crossing is the event; the boolean is a stand-in for it.

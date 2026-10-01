@@ -27,4 +27,8 @@ The SDT mapping is explicit, and code comments should say _why_ a mechanic exist
 - Streak arithmetic uses the injected `Clock` and `America/Sao_Paulo` day boundaries, not UTC
   midnight, or users lose a day for no reason.
 
+- **The celebration belongs to the event, never to a screen.** `BadgeAwarded` is what the confetti
+  and the modal hang off, so they fire once, when it happened. A screen that celebrated on open
+  would be applauding a visit — see `/achievements` in `app/(platform)/CLAUDE.md`.
+
 Emits `BadgeAwarded`, `StreakBroken`, `GoalReached`.

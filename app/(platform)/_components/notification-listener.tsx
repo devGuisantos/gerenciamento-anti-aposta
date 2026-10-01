@@ -16,7 +16,13 @@ import {
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import type { PlatformNotification } from '@modules/notifications';
+import { createConfettiBurst, type ConfettiBurst } from '@shared/ui/milestone-confetti';
 import { formatBRL } from '@shared/ui/money-text';
+
+import {
+  BadgeAwardedDialog,
+  type BadgeAwardedNotification,
+} from '../achievements/_components/badge-awarded-dialog';
 
 type NudgeNotification = Extract<
   PlatformNotification,
@@ -24,12 +30,22 @@ type NudgeNotification = Extract<
 >;
 
 /**
- * Subscribes to the SSE stream and renders whatever arrives. An awareness nudge
- * opens a modal, as described in §4.1 of the TCC; the rest are toasts, which are
- * lighter and do not interrupt.
+ * Subscribes to the SSE stream and renders whatever arrives.
+ *
+ * Two kinds open a modal and two do not, and the split is a product decision
+ * rather than a styling one. An awareness nudge interrupts because §4.1 of the TCC
+ * is built on it interrupting. An awarded badge interrupts because a badge is rare
+ * — eleven exist — and the celebration is the competence half of the SDT mapping,
+ * which a toast that fades in four seconds cannot carry.
+ *
+ * A **broken streak stays a toast**, and must. Celebrating in a modal while
+ * reporting a setback in passing is the no-shaming rule as a layout decision; a
+ * modal announcing a lost streak would be the product scolding somebody.
  */
 export function NotificationListener() {
   const [nudge, setNudge] = React.useState<NudgeNotification | null>(null);
+  const [award, setAward] = React.useState<BadgeAwardedNotification | null>(null);
+  const [burst, setBurst] = React.useState<ConfettiBurst | null>(null);
 
   React.useEffect(() => {
     const source = new EventSource('/api/notifications/stream');
@@ -42,9 +58,11 @@ export function NotificationListener() {
           setNudge(notification);
           break;
         case 'badge-awarded':
-          toast.success(notification.title, {
-            description: notification.description,
-          });
+          setAward(notification);
+          /* Built here, in the handler for the event itself: the dialog renders,
+             and `Math.random()` during render is impure. Reduced motion is
+             honoured where it is drawn, not where it is created. */
+          setBurst(createConfettiBurst());
           break;
         case 'streak-broken':
           // Stated neutrally, never as a reprimand.
@@ -64,11 +82,20 @@ export function NotificationListener() {
   }, []);
 
   return (
-    <Dialog open={nudge !== null} onOpenChange={() => setNudge(null)}>
-      <DialogContent className="sm:max-w-md">
-        {nudge ? <NudgeBody nudge={nudge} /> : null}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={nudge !== null} onOpenChange={() => setNudge(null)}>
+        <DialogContent className="sm:max-w-md">
+          {nudge ? <NudgeBody nudge={nudge} /> : null}
+        </DialogContent>
+      </Dialog>
+
+      <BadgeAwardedDialog
+        notification={award}
+        burst={burst}
+        onClose={() => setAward(null)}
+        onBurstFinished={() => setBurst(null)}
+      />
+    </>
   );
 }
 

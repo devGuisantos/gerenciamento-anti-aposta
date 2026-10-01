@@ -18,14 +18,56 @@ import type { PlatformNotification } from '@modules/notifications';
 
 const FIXED_INCOME_ANNUAL_RATE_PERCENT = 11.4;
 
-/** Presets so a demo needs one click, with the nudge fields still editable. */
-const PRESETS = {
-  badge: {
+/**
+ * One badge per family, so a demo can show each mark and both kinds of evidence.
+ *
+ * `badgeId` is a real id from `achievements/_badge.ts`: the dialog reads the mark
+ * and the criterion from the catalogue, and this payload carries only what the
+ * catalogue cannot know — which badge, and what the user actually did to satisfy
+ * it. The evidence lines below are written to match what
+ * `_badges-view.ts` produces for real.
+ */
+const BADGE_PRESETS = [
+  {
+    label: 'Conquista · sequência',
+    badgeId: 'streak-7',
+    title: 'Uma semana sem apostas',
+    description: '7 dias, de 05 de março a 11 de março.',
+  },
+  {
+    label: 'Conquista · teto',
+    badgeId: 'ceiling-1',
+    title: 'Um mês dentro do teto',
+    description: '1 mês fechado dentro do teto: julho de 2026.',
+  },
+  {
+    label: 'Conquista · queda',
+    badgeId: 'reduction-1',
+    title: 'Um mês de queda',
+    description: '1 mês fechado com queda: agosto de 2026.',
+  },
+  {
+    label: 'Conquista · poupança',
+    badgeId: 'savings-1',
+    title: 'Primeira meta concluída',
+    description: 'Concluída: Curso técnico.',
+  },
+] as const;
+
+function toBadgeNotification(
+  preset: (typeof BADGE_PRESETS)[number],
+): PlatformNotification {
+  return {
     kind: 'badge-awarded',
     id: '',
-    title: 'Sete dias sem apostar',
-    description: 'Você manteve uma semana inteira sem transações com BETs.',
-  },
+    badgeId: preset.badgeId,
+    title: preset.title,
+    description: preset.description,
+  };
+}
+
+/** Presets so a demo needs one click, with the nudge fields still editable. */
+const PRESETS = {
   streak: { kind: 'streak-broken', id: '', previousDays: 11 },
   goal: {
     kind: 'goal-reached',
@@ -145,19 +187,24 @@ export function NotificationConsole() {
         <CardHeader>
           <CardTitle>Gamificação</CardTitle>
           <CardDescription>
-            Eventos que chegam como toast, sem interromper a navegação.
+            Uma conquista abre o modal de celebração, com confete. A sequência
+            interrompida e a meta alcançada chegam como toast — reportar um
+            tropeço em modal seria a plataforma dando bronca.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-2">
-          <Button
-            variant="outline"
-            className="h-10 w-full justify-start"
-            disabled={isSending}
-            onClick={() => send(PRESETS.badge)}
-          >
-            Conquista desbloqueada
-          </Button>
+          {BADGE_PRESETS.map((preset) => (
+            <Button
+              key={preset.badgeId}
+              variant="outline"
+              className="h-10 w-full justify-start"
+              disabled={isSending}
+              onClick={() => send(toBadgeNotification(preset))}
+            >
+              {preset.label}
+            </Button>
+          ))}
           <Button
             variant="outline"
             className="h-10 w-full justify-start"

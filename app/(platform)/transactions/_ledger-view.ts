@@ -78,7 +78,14 @@ function toStartOfDay(value: Date): Date {
   return start;
 }
 
-function countDaysAgo(occurredAt: Date, reference: Date): number {
+/**
+ * Whole calendar days between two instants, local midnight to local midnight.
+ *
+ * Exported because the streak record counts the same days this screen groups by,
+ * and two implementations of the same arithmetic are two chances to disagree
+ * about which day a bet landed on.
+ */
+export function countDaysAgo(occurredAt: Date, reference: Date): number {
   const elapsed = toStartOfDay(reference).getTime() - toStartOfDay(occurredAt).getTime();
   return Math.round(elapsed / MILLISECONDS_PER_DAY);
 }

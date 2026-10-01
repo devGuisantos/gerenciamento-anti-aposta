@@ -16,8 +16,12 @@ export const SNAPSHOT = {
   betSpendDeltaInCents: 52_000,
   /** 184000 * (1 + 0.114) — the same maths the awareness module will own. */
   twelveMonthYieldInCents: 204_976,
-  betFreeStreakDays: 3,
-  bestStreakDays: 11,
+  /* The streak figures used to live here, and they were wrong: this fixture
+     claimed three bet-free days while the transactions below show a bet today.
+     They are derived from the ledger now — see
+     `../achievements/_streak-view.ts`. A counter kept by hand beside the
+     transactions it counts is a counter that disagrees with them, and the one the
+     user would believe is the counter. */
   /* The goal lives in `../goals/_mock-goals.ts` and its progress is measured
      against the monthly totals, never written down here. An earlier version held
      a `savedInCents` figure, which was a number nothing could verify: the

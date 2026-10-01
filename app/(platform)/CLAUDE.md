@@ -52,7 +52,9 @@ request; static rendering would bake the build-time answer in and 404 forever.
 Notifications are delivered by real Server-Sent Events, so this exercises the transport the
 `notifications` module will own rather than faking it with local state. `NotificationListener` in
 the layout subscribes once for the whole app: an awareness nudge opens a **modal** (§4.1 of the
-TCC), everything else is a toast. Publishing reaches every connected browser, not one user — fine
+TCC) and so does an awarded badge (`BadgeAwardedDialog`, with confetti), while a broken streak and a
+reached savings goal are toasts. That split is a product decision rather than a styling one — see
+`/achievements` below, and the notifications module’s own rules. Publishing reaches every connected browser, not one user — fine
 for a demo, unacceptable for the real thing.
 
 ## Data
@@ -162,7 +164,8 @@ and the app keeps the ledger — the honest version of a savings goal.
 - **`MovementDirection` is a union, not a boolean.** `recordMovement({ isDeposit: false })` reads
   like nothing, and the direction has to survive into the copy, the icon and the history label.
 - **The confetti is the mechanic that comes closest to the forbidden list, so its limits are
-  load-bearing.** `GoalReachedConfetti` (Motion) fires on exactly one thing: the movement that
+  load-bearing.** `MilestoneConfetti` (Motion, and in `@shared/ui` because `/achievements`
+  celebrates with the same burst) fires here on exactly one thing: the movement that
   *crosses* a target the user set. The store decides that — `reachedNow`, a before/after
   comparison, standing in for the `GoalReached` event — and the client never infers it, because a
   celebration the browser talked itself into is a celebration for something that may not have
@@ -250,6 +253,95 @@ Rules this screen establishes:
   and leaves the thumb — the element with `role="slider"` — unnamed, so the wrapper now forwards
   `aria-label`/`aria-labelledby` to it. Keep that on re-add.
 
+## `/achievements` — the gamification pillar
+
+The `gamification` module's screen, and the one place in the product where a mechanic could
+turn into the thing the product opposes. Its parts live in `achievements/`:
+
+- `_streak.ts` is the streak shape, mirroring `gamification`'s `Streak`. `_streak-view.ts` derives
+  every streak from the ledger and holds the arithmetic.
+- `_badge.ts` is the catalogue — titles, criteria, thresholds — and carries the module's rules as
+  comments where the data is. `_badges-view.ts` evaluates it against what was observed.
+- `_components/` holds the presentation. **The screen itself is entirely server-rendered** — the
+  hero, the calendar strip, the streak list and the badge cards hold no state and ship no
+  JavaScript of their own, which matters for an audience on cheap phones. The client half is only
+  what has to be: `badge-dialog.tsx` (the detail popup each card opens), `badge-awarded-dialog.tsx`
+  (the celebration, rendered by the layout’s `NotificationListener`) and `badge-medal.tsx` (the
+  animated mark both share).
+
+Rules this screen establishes:
+
+- **Streaks are derived from the statement, never stored.** The dashboard used to hold
+  `betFreeStreakDays: 3` by hand while the statement showed a bet that same day. A kept counter and
+  the transactions it counts are two things that can disagree, and the one the user would believe is
+  the counter. Both screens now read `toStreakRecord`, and the fixture fields are gone.
+- **A bet-free day is a day we looked at and found nothing** — which only holds inside the window we
+  have consent to read. So the window is part of the record, and the stretch that runs off its far
+  edge reports **"pelo menos 33 dias"**, never 33. We know it ran at least that long; we have no
+  right to say it started there. Any new figure that could be truncated says so the same way.
+- **Today is not counted.** The module extends a streak on the daily clock tick, which fires when a
+  day ends, so the counter holds complete days only. A screen that counted today would drop back to
+  zero when a bet arrived in the evening, which is the one behaviour that would teach people to
+  distrust it.
+- **The hero is a count of days, and it is the only hero in the product that is not red.** Red means
+  a gambling amount; a bet-free day is not one. It is not green either — `--spend-none` is reserved
+  for a betting total of exactly zero, which is a different claim.
+- **A zero reads as a zero.** The module requires a broken streak to be stated neutrally and the
+  counter to restart: no sad copy, no warning colour, no "você perdeu sua sequência". The hero names
+  the bet that ended it and the policy that caught it, then says when the count resumes — the same
+  treatment a month past its ceiling gets.
+- **Every badge marks something that happened, and none is ever revoked.** Nothing is awarded for
+  opening the app, connecting an account or setting a goal. A badge records a fact, so taking it
+  back when a streak breaks would be a punishment, and this product does not punish.
+- **Nothing is hidden and nothing is random.** Every criterion is readable on the first visit. A
+  badge revealed by chance is loot-box framing, which is the psychology the product exists to
+  oppose — the same reason there is no padlock on an unearned badge and no greyed-out mystery card.
+- **There are no points, levels or rankings, and the screen says so.** SDT asks a mechanic to
+  support competence, not to replace it with a score; a number that exists only to go up is the
+  extrinsic motivator it warns about, and a leaderboard would turn a private financial difficulty
+  into a comparison with other people. Relatedness is **absent on purpose** — the module reserves
+  shareable achievements for later and always opt-in, so there is no share affordance rather than
+  one that pretends.
+- **A distance is a distance.** `NextMilestoneCard` and every unearned badge state what is left in
+  units and stop. No "quase lá", no countdown, nothing that animates, nothing that teases. A
+  near-miss is the precise effect a slot machine sells.
+- **Self-reported badges cannot look measured.** The savings family is the one fed by figures the
+  user typed in, so its cards and its family heading both say "registrado por você". Letting the two
+  kinds look identical would lend the self-reported half a certainty it has not got — the same
+  distinction `/goals` keeps between a savings goal and the ceiling.
+- **Closed months only.** The open month is half a month: a badge awarded on it could be undone by
+  its last ten days.
+- **The calendar strip is retrospective and nothing else.** One square per day, oldest left, today
+  ringed. The two fills are separated by **lightness**, not hue, so they survive every form of
+  colour blindness and both themes; the legend names both states, each square carries its date and
+  state in a `title`, and the same facts are in the sr-only summary and the streak list — which is
+  what lets the grid itself be `aria-hidden` instead of read out as sixty list items.
+- **Every card opens a dialog, and the two dialogs are not the same thing.** `BadgeDialog` is a
+  record the reader asked for: the criterion, what satisfied it or how far it stands, and a link to
+  the screen the figure came from. `BadgeAwardedDialog` is the celebration, and only a
+  `BadgeAwarded` notification opens it.
+- **The confetti fires on the award and nowhere else.** Opening `/achievements` celebrates nothing,
+  however many badges are on it — a burst for something that happened three weeks ago is applause
+  for nothing having occurred, and it would teach the reader that the celebration means nothing.
+  Firing it beside an **unearned** badge would be the near-miss the rules forbid outright. The burst
+  is `MilestoneConfetti`, the same one a reached savings goal uses, and it is created in the
+  notification handler — never during render, where `Math.random()` is impure.
+- **A badge is rare, which is what earns it the interruption.** Eleven exist. A modal for something
+  that fired weekly would be the harassment the notifications module forbids, and a `StreakBroken`
+  modal would be the product scolding somebody — that one stays a toast, permanently.
+- **`BadgeMedal` names its three entrances** (`CELEBRATE`, `SETTLE`, `NONE`) rather than taking a
+  flag, because how the mark arrives is the whole of what the component does. The celebration halo
+  **plays once**: a mark that keeps pulsing is an attractor built to pull the eye back, which is a
+  slot-machine technique in a celebration's clothes. `NONE` is what reduced motion gets, and it is
+  the same final state with the travel removed (WCAG 2.3.3).
+- **Motion propagates a variant label through its own components only.** The staggered lines in the
+  celebration are direct `motion` children of the stagger container: a plain `div` between them — a
+  `DialogHeader`, in the version that shipped first — cuts the chain silently, and every line then
+  appears at once with no animation and nothing in the console to say so.
+- **Nothing is revealed.** No padlock, no scratch-off, no "spin to see what you won". Every
+  criterion is plain text on the screen before, during and after.
+- **The support offer outranks the whole screen.** See below.
+
 ## The escalation path
 
 The root `CLAUDE.md` requires that sustained betting surfaces support resources rather than more
@@ -268,6 +360,12 @@ gamification. `SupportCard` on `/transactions/insights` is that path, and the ru
   support line that waits for JavaScript is one some people never see.
 - **Dismissal lasts the session, not forever** (`sessionStorage`). Autonomy is the point of the
   SDT framing, but a permanent hide would bury a crisis line behind one stray click.
+- **It renders on `/achievements` too, above everything, and it suppresses `NextMilestoneCard`
+  there.** The product rule is support resources *instead of* more gamification, and that screen is
+  the gamification. The badges stay — removing a record of something the person did would be a
+  punishment — but the nudge toward the next milestone stops while the offer stands, and somebody
+  who needs a phone number does not scroll past a progress bar to reach it. The dismissal is shared
+  with `/transactions/insights`: one offer, dismissed once.
 - **The contacts live in `@shared/ui/support-contacts`**, rendered by both the marketing footer and
   this card. A support number that goes stale in one copy is a harm, not a style inconsistency —
   never inline them again.
