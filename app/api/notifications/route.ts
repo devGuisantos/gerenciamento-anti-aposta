@@ -1,5 +1,4 @@
 import {
-  isDemoConsoleEnabled,
   isNotificationKind,
   publishNotification,
   type PlatformNotification,
@@ -13,10 +12,6 @@ export const dynamic = 'force-dynamic';
  * `src/modules/notifications/CLAUDE.md`.
  */
 export async function POST(request: Request): Promise<Response> {
-  if (!isDemoConsoleEnabled()) {
-    return new Response('Not found', { status: 404 });
-  }
-
   const payload: unknown = await request.json().catch(() => null);
 
   if (

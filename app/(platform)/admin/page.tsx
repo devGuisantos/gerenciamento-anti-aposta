@@ -1,13 +1,7 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { TriangleAlert } from 'lucide-react';
 
-import { isDemoConsoleEnabled } from '@modules/notifications';
-
 import { NotificationConsole } from './_components/notification-console';
-
-/** Read ENABLE_DEMO_CONSOLE per request, not once at build time. */
-export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Console de demonstração',
@@ -16,12 +10,6 @@ export const metadata: Metadata = {
 };
 
 export default function AdminPage() {
-  // Off in production unless ENABLE_DEMO_CONSOLE=true, because anyone who finds
-  // the URL can push a notification to every connected browser.
-  if (!isDemoConsoleEnabled()) {
-    notFound();
-  }
-
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="space-y-1">
@@ -42,8 +30,7 @@ export default function AdminPage() {
           <p className="text-muted-foreground">
             Esta página não aparece na navegação e é acessível apenas pela URL.
             Publica para <strong>todas</strong> as abas conectadas, não para um
-            usuário específico. Fica indisponível em produção, a menos que
-            <code className="mx-1">ENABLE_DEMO_CONSOLE=true</code> seja definida.
+            usuário específico.
           </p>
         </div>
       </div>

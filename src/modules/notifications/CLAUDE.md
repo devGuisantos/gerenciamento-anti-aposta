@@ -25,9 +25,10 @@ The SSE half is real and working; the domain half is not. What exists today:
 - `app/api/notifications/stream` (GET, SSE) and `app/api/notifications` (POST, publish).
 - `/admin`, a hidden console that publishes manually — see `app/(platform)/CLAUDE.md`.
 
-Both routes and the page are gated by `isDemoConsoleEnabled()`: on outside production, off inside
-unless `ENABLE_DEMO_CONSOLE=true`. The POST endpoint has no authentication, so that gate is the
-only thing standing between a stranger and every connected browser. Keep it.
+Neither the routes nor the page is gated by an environment flag — they answer wherever the app runs.
+The POST endpoint has no authentication, so nothing stands between a stranger and every connected
+browser. Close that with the per-user authenticated stream in the rules below before this reaches
+real users.
 
 When the real module lands, the events that today arrive from a button should arrive from
 `BetTransactionDetected` and `BadgeAwarded` instead — the client side does not need to change.

@@ -1,7 +1,4 @@
-import {
-  isDemoConsoleEnabled,
-  subscribeToNotifications,
-} from '@modules/notifications';
+import { subscribeToNotifications } from '@modules/notifications';
 
 /** An open SSE connection must never be cached or statically rendered. */
 export const dynamic = 'force-dynamic';
@@ -9,10 +6,6 @@ export const dynamic = 'force-dynamic';
 const KEEP_ALIVE_MS = 25_000;
 
 export async function GET(): Promise<Response> {
-  if (!isDemoConsoleEnabled()) {
-    return new Response('Not found', { status: 404 });
-  }
-
   const encoder = new TextEncoder();
   let cleanup: (() => void) | undefined;
 

@@ -45,9 +45,10 @@ a nav entry that 404s is a broken nav, which is why the unimplemented screens re
 An unlisted route that publishes notifications by hand while the modules do not exist. It is
 deliberately **not** in `NAV_GROUPS`: reachable only by typing the URL, and `robots: noindex`.
 
-`isDemoConsoleEnabled()` gates the page and both API routes — on outside production, off inside
-unless `ENABLE_DEMO_CONSOLE=true`. The page is `dynamic = 'force-dynamic'` so that flag is read per
-request; static rendering would bake the build-time answer in and 404 forever.
+The page and both API routes are **not** gated by an environment flag: they answer wherever the app
+runs, production included. Being unlisted is the route's only cover, and the POST endpoint behind it
+is unauthenticated — treat that as a gap to close with a real authenticated stream, not with an
+env var.
 
 Notifications are delivered by real Server-Sent Events, so this exercises the transport the
 `notifications` module will own rather than faking it with local state. `NotificationListener` in
