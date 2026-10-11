@@ -1,6 +1,7 @@
 'use client';
 
 import { useId } from 'react';
+import { CircleAlert } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,6 +43,8 @@ type AuthTextFieldProps = {
   readonly placeholder?: string;
   /** Shown under the input and wired with `aria-describedby`, never a placeholder. */
   readonly hint?: string;
+  /** Rendered under the input with `aria-invalid`, next to the field that failed. */
+  readonly error?: string | null;
   readonly enterKeyHint?: 'next' | 'done';
 };
 
@@ -52,10 +55,16 @@ export function AuthTextField({
   autoComplete,
   placeholder,
   hint,
+  error,
   enterKeyHint,
 }: AuthTextFieldProps) {
   const fieldId = useId();
   const hintId = useId();
+  const errorId = useId();
+
+  const describedBy = [hint === undefined ? null : hintId, error ? errorId : null]
+    .filter((id) => id !== null)
+    .join(' ');
 
   return (
     <div className="space-y-2">
@@ -68,7 +77,8 @@ export function AuthTextField({
         enterKeyHint={enterKeyHint}
         placeholder={placeholder}
         className="h-10"
-        aria-describedby={hint === undefined ? undefined : hintId}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy === '' ? undefined : describedBy}
         required
       />
       {hint === undefined ? null : (
@@ -76,6 +86,12 @@ export function AuthTextField({
           {hint}
         </p>
       )}
+      {error ? (
+        <p id={errorId} className="flex items-start gap-2 text-sm text-destructive">
+          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

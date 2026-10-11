@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-import { DemoAccess } from '../_components/demo-access';
 import { SignInForm } from '../_components/sign-in-form';
 
 export const metadata: Metadata = {
@@ -30,8 +29,6 @@ export default function LoginPage() {
 
       <CardContent className="space-y-6">
         <SignInForm />
-
-        <DemoAccess />
 
         <p className="text-center text-sm text-muted-foreground">
           Ainda não tem conta?{' '}

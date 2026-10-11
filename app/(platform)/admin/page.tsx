@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { TriangleAlert } from 'lucide-react';
 
 import { NotificationConsole } from './_components/notification-console';
+import { requireSession } from '@modules/identity';
 
 export const metadata: Metadata = {
   title: 'Console de demonstração',
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  await requireSession();
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="space-y-1">

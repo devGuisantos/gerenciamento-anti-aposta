@@ -32,6 +32,7 @@ import { DetectionAudit } from './_components/detection-audit';
 import { HourPattern } from './_components/hour-pattern';
 import { PeriodSelector } from './_components/period-selector';
 import { SpendingEquivalences } from './_components/spending-equivalences';
+import { requireSession } from '@modules/identity';
 
 export const metadata: Metadata = {
   title: 'Apostas',
@@ -44,6 +45,7 @@ export const dynamic = 'force-dynamic';
 const ratePercent = (FIXED_INCOME_ANNUAL_RATE * 100).toFixed(1).replace('.', ',');
 
 export default async function BetsPage({ searchParams }: PageProps<'/bets'>) {
+  await requireSession();
   const period = toBetPeriod((await searchParams).period);
   const reference = new Date();
   /* The same entries the statement reads, so the two screens cannot disagree

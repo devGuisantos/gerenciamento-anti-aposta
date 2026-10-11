@@ -18,6 +18,7 @@ import {
   type MonthlyBetTotal,
 } from './_goals-view';
 import { GOALS } from './_mock-goals';
+import { requireSession } from '@modules/identity';
 
 export const metadata: Metadata = {
   title: 'Metas',
@@ -39,7 +40,8 @@ const CLOSED_MONTHS = MONTHS.filter((month) => month.monthsAgo > 0);
 
 const CEILING_CAP_IN_CENTS = toCeilingCap(MONTHS);
 
-export default function GoalsPage() {
+export default async function GoalsPage() {
+  await requireSession();
   const reference = new Date();
   const cycles = selectCycles(GOALS, MONTHS, reference);
   const currentCycle = cycles.find((cycle) => cycle.monthsAgo === 0);

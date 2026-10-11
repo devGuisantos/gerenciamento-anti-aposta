@@ -4,6 +4,7 @@ import { SectionTabs } from './_components/section-tabs';
 import { TransactionLedger } from './_components/transaction-ledger';
 import { toLedgerRows, type LedgerFilter, type LedgerPeriod } from './_ledger-view';
 import { buildLedgerEntries } from './_mock-ledger';
+import { requireSession } from '@modules/identity';
 
 export const metadata: Metadata = {
   title: 'Transações',
@@ -40,6 +41,7 @@ function readParam<Value>(
 }
 
 export default async function TransactionsPage({ searchParams }: PageProps<'/transactions'>) {
+  await requireSession();
   const { filter, period } = await searchParams;
   const reference = new Date();
   const rows = toLedgerRows(buildLedgerEntries(reference), reference);

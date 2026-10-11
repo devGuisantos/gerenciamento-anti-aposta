@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { SectionTabs } from '../_components/section-tabs';
 import { InsightsDashboard } from './_components/insights-dashboard';
+import { requireSession } from '@modules/identity';
 
 export const metadata: Metadata = {
   title: 'Gráficos',
@@ -14,7 +15,8 @@ export const metadata: Metadata = {
  */
 export const dynamic = 'force-dynamic';
 
-export default function TransactionInsightsPage() {
+export default async function TransactionInsightsPage() {
+  await requireSession();
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="space-y-1">

@@ -18,6 +18,25 @@ this layout: a visitor should never see the app chrome before there is data in i
 - `AppSidebar` is a Client Component solely because it reads `usePathname()` for the active item.
   Screens themselves stay Server Components.
 
+## Session gate
+
+Every screen here requires a session, enforced in two layers:
+
+- **`proxy.ts` (repo root)** redirects to `/login` when the session cookie is absent, and on a GET
+  re-issues a present one with a fresh max-age to mirror the backend's sliding session — never on a
+  POST, where a Server Action may be writing the same cookie. Optimistic only — it never calls the
+  backend. **Its `matcher` lists every route in this group: a new screen is added there in the same
+  commit**, or it is reachable signed out.
+- **`requireSession()` from `@modules/identity`** is the real check: it resolves the cookie against
+  `GET /identity/sessions/current` and redirects to `/login` on a rejected session. **Every
+  `page.tsx` here opens with `await requireSession()`, and so does every Server Action** — a layout
+  does not re-render on client navigation, so a check that lived only there would let a revoked
+  session keep browsing. It is `cache`d: the layout and the page share one backend call per load.
+  Route Handlers use `findCurrentUser()` and answer `401` instead of redirecting.
+
+The sidebar footer shows the signed-in name and e-mail and holds "Sair", a `<form>` posting to
+`_sign-out-action.ts`, which revokes the session on the backend and drops the cookie.
+
 ## Width
 
 App screens are **not** reading columns. Content fills the inset:
@@ -45,18 +64,20 @@ a nav entry that 404s is a broken nav, which is why the unimplemented screens re
 An unlisted route that publishes notifications by hand while the modules do not exist. It is
 deliberately **not** in `NAV_GROUPS`: reachable only by typing the URL, and `robots: noindex`.
 
-The page and both API routes are **not** gated by an environment flag: they answer wherever the app
-runs, production included. Being unlisted is the route's only cover, and the POST endpoint behind it
-is unauthenticated — treat that as a gap to close with a real authenticated stream, not with an
-env var.
+The page and both API routes require a session (`requireSession` on the page, `findCurrentUser` and
+a `401` on the routes), and the broker is **keyed by user**: the console publishes to the caller's
+own open tabs and nobody else's. That is the security property, not the unlisting — a channel that
+reached every user would let anyone put words of their choosing in an awareness-nudge modal. The
+POST also requires `application/json`, which a cross-site form cannot send without a preflight.
 
 Notifications are delivered by real Server-Sent Events, so this exercises the transport the
 `notifications` module will own rather than faking it with local state. `NotificationListener` in
 the layout subscribes once for the whole app: an awareness nudge opens a **modal** (§4.1 of the
 TCC) and so does an awarded badge (`BadgeAwardedDialog`, with confetti), while a broken streak and a
 reached savings goal are toasts. That split is a product decision rather than a styling one — see
-`/achievements` below, and the notifications module’s own rules. Publishing reaches every connected browser, not one user — fine
-for a demo, unacceptable for the real thing.
+`/achievements` below, and the notifications module’s own rules. The broker is still in-process —
+it does not survive a restart or cross instances — which is the part the real implementation
+replaces.
 
 ## Data
 

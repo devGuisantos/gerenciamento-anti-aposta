@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 
 import { PlaceholderPage } from '../_components/placeholder-page';
+import { requireSession } from '@modules/identity';
 
 export const metadata: Metadata = { title: 'Contas conectadas' };
 
-export default function AccountsPage() {
+export default async function AccountsPage() {
+  await requireSession();
   return (
     <PlaceholderPage
       title="Contas conectadas"
