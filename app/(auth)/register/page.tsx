@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-import { DemoAccess } from '../_components/demo-access';
 import { RegisterForm } from '../_components/register-form';
 
 export const metadata: Metadata = {
@@ -31,8 +30,6 @@ export default function RegisterPage() {
 
       <CardContent className="space-y-6">
         <RegisterForm />
-
-        <DemoAccess />
 
         <p className="text-center text-sm text-muted-foreground">
           Já tem conta?{' '}

@@ -6,6 +6,7 @@ import {
   ArrowLeftRight,
   Landmark,
   LayoutDashboard,
+  LogOut,
   ScanSearch,
   Settings,
   Target,
@@ -27,6 +28,8 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Logo } from '@shared/ui/logo';
+
+import { signOutAction } from '../_sign-out-action';
 
 type NavItem = {
   readonly href: string;
@@ -74,7 +77,12 @@ function isCurrentSection(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function AppSidebar() {
+type AppSidebarProps = {
+  readonly userName: string;
+  readonly userEmail: string;
+};
+
+export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
   const pathname = usePathname();
   const { state, isMobile } = useSidebar();
 
@@ -117,18 +125,29 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t">
         <SidebarMenu>
+          {/* Not a button: there is nothing to do by clicking who you are. */}
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" tooltip="Conta de demonstração">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-medium">
-                G
+            <div className="flex h-12 items-center gap-2 overflow-hidden p-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-1">
+              <span
+                aria-hidden
+                className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-medium"
+              >
+                {userName.charAt(0).toUpperCase()}
               </span>
-              <span className="grid text-left leading-tight">
-                <span className="truncate text-sm font-medium">Conta demo</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  dados simulados
-                </span>
+              <span className="grid min-w-0 text-left leading-tight">
+                <span className="truncate text-sm font-medium">{userName}</span>
+                <span className="truncate text-xs text-muted-foreground">{userEmail}</span>
               </span>
-            </SidebarMenuButton>
+            </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            {/* A form, so signing out works before hydration and is a POST, never a GET a prefetch could trigger. */}
+            <form action={signOutAction}>
+              <SidebarMenuButton type="submit" tooltip="Sair">
+                <LogOut />
+                <span>Sair</span>
+              </SidebarMenuButton>
+            </form>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

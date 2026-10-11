@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { requireSession } from '@modules/identity';
 import { MoneyText, formatBRL } from '@shared/ui/money-text';
 
 import {
@@ -64,7 +65,13 @@ const MONTHS: readonly MonthlyBetTotal[] = MONTHLY_HISTORY.map((month) => ({
 /** How far back the statement data goes, which bounds the bet-free streak. */
 const OLDEST_MONTHS_AGO = Math.max(...MONTHLY_HISTORY.map((month) => month.monthsAgo));
 
-export default function DashboardPage() {
+/** "Olá, Maria" rather than "Olá, Maria Aparecida dos Santos". */
+function firstNameOf(name: string): string {
+  return name.trim().split(/\s+/)[0] ?? name;
+}
+
+export default async function DashboardPage() {
+  const user = await requireSession();
   const reference = new Date();
   const currentCycle = selectCycles(GOALS, MONTHS, reference).find(
     (cycle) => cycle.monthsAgo === 0,
@@ -83,7 +90,7 @@ export default function DashboardPage() {
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="space-y-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Olá, Guilherme
+          Olá, {firstNameOf(user.name)}
         </h1>
         <p className="text-sm text-muted-foreground">
           Este é o retrato do seu mês. Os números abaixo são retrospectivos: eles

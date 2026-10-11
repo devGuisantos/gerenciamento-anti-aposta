@@ -1,14 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { startTransition, useActionState, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 
+import { INITIAL_AUTH_FORM_STATE } from '../_auth-form-state';
 import { PASSWORD_MINIMUM_LENGTH } from '../_password-strength';
+import { registerAction } from '../actions';
 import { AuthTextField } from './auth-text-field';
 import { ConsentField } from './consent-field';
+import { FormFailureNotice } from './form-failure-notice';
 import { PasswordField } from './password-field';
-import { PendingFormNotice } from './pending-form-notice';
 
 const MISMATCH_MESSAGE = 'As duas senhas não são iguais.';
 const CONSENT_MESSAGE = 'Para criar a conta é preciso autorizar o uso do nome e do e-mail.';
@@ -16,23 +18,25 @@ const CONSENT_MESSAGE = 'Para criar a conta é preciso autorizar o uso do nome e
 /**
  * The registration form.
  *
- * Client-side for the same reason sign-in is — a form with no `action` GETs the
- * password into the URL — plus two checks the browser cannot express on its own:
- * that the two passwords match, and that consent was given. Both are real
- * validation that works today, which is the opposite of the pending notice: that
- * one appears only once the form is genuinely complete.
+ * Submitted from `onSubmit` for the same reasons as sign-in — native validation
+ * runs first, and React's post-action reset would wipe what the person typed on
+ * a failure — plus two checks the browser cannot express on its own: that the
+ * two passwords match, and that consent was given. The backend re-checks both;
+ * these exist so the person hears about a typo without a round trip.
  *
- * TODO(identity): replace the handler with a Server Action calling
- * `container.registerUser`, and delete `PendingFormNotice` from this file. The
- * action re-parses every field with Zod and re-checks both of these — a Server
- * Action is a public POST endpoint, and nothing the browser verified counts.
+ * When the browser's answer and the server's disagree about a field, the
+ * browser's wins: it reflects what is on screen now, while the server's is
+ * about the last submit.
  */
 export function RegisterForm() {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [hasConsented, setHasConsented] = useState(false);
   const [wasChecked, setWasChecked] = useState(false);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [state, submitAction, isPending] = useActionState(
+    registerAction,
+    INITIAL_AUTH_FORM_STATE,
+  );
 
   /* While the confirmation is still a prefix of the password the person is simply
      mid-word, so there is nothing to correct yet. Nagging from the second
@@ -49,11 +53,11 @@ export function RegisterForm() {
     setWasChecked(true);
 
     if (password !== confirmation || !hasConsented) {
-      setHasSubmitted(false);
       return;
     }
 
-    setHasSubmitted(true);
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => submitAction(formData));
   }
 
   return (
@@ -64,6 +68,7 @@ export function RegisterForm() {
         kind="name"
         autoComplete="name"
         hint="Como você quer ser chamado no app."
+        error={state.fieldErrors['name']}
         enterKeyHint="next"
       />
 
@@ -73,6 +78,7 @@ export function RegisterForm() {
         kind="email"
         autoComplete="email"
         placeholder="voce@exemplo.com"
+        error={state.fieldErrors['email']}
         enterKeyHint="next"
       />
 
@@ -84,6 +90,7 @@ export function RegisterForm() {
         value={password}
         onValueChange={setPassword}
         hint={`Pelo menos ${PASSWORD_MINIMUM_LENGTH} caracteres.`}
+        error={state.fieldErrors['password']}
         enterKeyHint="next"
       />
 
@@ -94,26 +101,21 @@ export function RegisterForm() {
         meter="NONE"
         value={confirmation}
         onValueChange={setConfirmation}
-        error={confirmationError}
+        error={confirmationError ?? state.fieldErrors['passwordConfirmation']}
         enterKeyHint="done"
       />
 
       <ConsentField
         checked={hasConsented}
         onCheckedChange={setHasConsented}
-        error={consentError}
+        error={consentError ?? state.fieldErrors['acceptedRegistrationConsent'] ?? null}
       />
 
-      <Button type="submit" size="lg" className="h-10 w-full">
-        Criar conta
+      <Button type="submit" size="lg" className="h-10 w-full" disabled={isPending}>
+        {isPending ? 'Criando conta…' : 'Criar conta'}
       </Button>
 
-      {hasSubmitted ? (
-        <PendingFormNotice>
-          O cadastro ainda não está conectado — o módulo de contas do projeto não existe. Nenhuma
-          conta foi criada e nenhum dado foi enviado. Para ver o app, use a demonstração abaixo.
-        </PendingFormNotice>
-      ) : null}
+      <FormFailureNotice message={state.message} />
     </form>
   );
 }

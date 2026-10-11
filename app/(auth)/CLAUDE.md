@@ -10,6 +10,8 @@ being comfortable, and a percentage would go under it on a 1280px laptop.
 ```
 app/(auth)/
   layout.tsx                 # two-column shell, theme toggle, disclaimer + support line
+  actions.ts                 # signInAction, registerAction — the Server Actions
+  _auth-form-state.ts        # backend failure -> form-level message + per-field errors
   _password-strength.ts      # the pure assessment policy
   _components/
     auth-aside.tsx           # the context column (nothing focusable — see below)
@@ -20,27 +22,25 @@ app/(auth)/
     sign-in-form.tsx
     register-form.tsx
     forgot-password-form.tsx
-    pending-form-notice.tsx  # what a complete form says instead of signing anyone in
-    demo-access.tsx          # the only route into the app that works today
+    form-failure-notice.tsx  # a failure that belongs to the form, not to one field
+    pending-form-notice.tsx  # what forgot-password says instead of sending anything
   login/ register/ forgot-password/
 ```
 
 ## Current state
 
-The forms are **UI only** — no `action` is wired, because the `identity` module does not exist
-yet. Each form carries a `TODO(identity)` naming the use case that will own it. Do not stub a fake
-authentication flow to make them "work".
+**Sign-in and registration are live** against backend-anti-aposta (`POST /identity/sessions`,
+`POST /identity/users`), through the Server Actions in `actions.ts`. **`/forgot-password` is still
+UI only**: the backend does not build the reset-request endpoint yet (it needs a mail provider), so
+that form keeps its `TODO(identity)` and its `PendingFormNotice`. Do not stub a fake flow for it.
 
-- **A submitted form says so, and never fakes success.** `PendingFormNotice` states that nothing
-  was sent and points at the demo. Same family as `PendingActionButton` and `PlaceholderPage`, with
-  one difference: the message is inline, not a toast, because a toast fades in four seconds and
-  this person is stuck at a door. It is **not** styled as an error — nothing they did was wrong.
 - **`/forgot-password` is where faking would do the most harm.** "Enviamos um e-mail" when nothing
   was sent leaves somebody waiting on a message that never comes, checking spam, locked out. Its
-  notice says in as many words that no e-mail was sent.
-- **`DemoAccess` is on both cards**, from one file so the wording cannot drift. It is navigation,
-  not marketing: until `identity` lands the forms sign nobody in, and without it a visitor arriving
-  from the landing-page CTA has nowhere to go.
+  notice says in as many words that no e-mail was sent. `PendingFormNotice` is inline, not a toast,
+  and not styled as an error — nothing the person did was wrong.
+- **There is no anonymous way into the app.** The "Entrar na demonstração" button was removed when
+  the platform routes became session-gated: it would only have bounced back here. A signed-in
+  account still sees simulated data until Open Finance is wired.
 
 ## The context column
 
@@ -73,28 +73,35 @@ survives review because the screen looks right.
 
 So each form is a Client Component whose `onSubmit` calls `preventDefault`. Use `preventDefault`,
 **never `type="button"` on the submit**: the browser then still runs native validation first, so an
-empty field behaves exactly as it will once the action is wired, and the pending notice only appears
-for a form that was genuinely complete.
+empty field gets "preencha este campo" before anything is sent.
+
+The handler then builds the `FormData` and calls the `useActionState` dispatcher inside
+`startTransition`, **rather than passing the action to `<form action>`**. React resets a form after
+an `action` completes, which would wipe the e-mail somebody just typed every time the password was
+wrong.
 
 The pages themselves stay Server Components and render one form component each.
 
-## Wiring the forms (when identity exists)
+## Wiring the forms
 
 - One Server Action per screen in `app/(auth)/actions.ts`, marked `"use server"`.
-- The action parses `FormData` with a Zod schema, calls `container.registerUser` /
-  `container.signIn`, and maps the `Result` to a message — it never hashes a password, checks a
-  credential, or touches Prisma itself.
-- **Re-authorise inside the action.** Server Actions are public POST endpoints, and nothing the
-  browser validated counts: the password match, the consent and the strength policy are all
-  re-checked server-side.
+- The action parses `FormData` with a Zod schema (**shape only**), calls `registerUser` / `signIn`
+  from `@modules/identity`, and maps the result to an `AuthFormState`. It never hashes a password
+  or checks a credential: backend-anti-aposta is the system of record and re-checks the password
+  match, the consent and the length policy. Repeating those rules here would only let two copies
+  drift; the client-side checks in `RegisterForm` exist to save a round trip, not to authorise.
+- **Errors go where the backend anchors them.** `details.field` puts the message under that field;
+  a `details` map of field → message puts each under its field; anything else is form-level, in
+  `FormFailureNotice`. Field names are the backend's (`acceptedRegistrationConsent` is the consent).
 - Never echo back which half of a credential pair was wrong ("e-mail não encontrado" tells an
   attacker the address exists). One message: "E-mail ou senha incorretos."
 - **Password recovery answers identically whether or not the address exists.** A different message
   for an unknown e-mail turns that form into a way to enumerate the platform's users — which for
   this product is a list of people who may be gambling. Reset tokens are single-use, short-lived,
   and never logged.
-- Rate limiting belongs in `proxy.ts` or the use case, not in the component.
-- On success, `redirect('/dashboard')`; never return the session token to the client.
+- Rate limiting belongs to the backend, never to the component.
+- On success, `storeSession` then `redirect('/dashboard')`; never return the session token to the
+  client.
 
 ## Form conventions
 

@@ -17,6 +17,7 @@ import { StreakCalendar } from './_components/streak-calendar';
 import { StreakHero } from './_components/streak-hero';
 import { StreakRecordList } from './_components/streak-record-list';
 import { toBetDays, toDataWindow, toStreakDays, toStreakRecord } from './_streak-view';
+import { requireSession } from '@modules/identity';
 
 export const metadata: Metadata = {
   title: 'Conquistas',
@@ -54,7 +55,8 @@ const OLDEST_MONTHS_AGO = Math.max(...MONTHLY_HISTORY.map((month) => month.month
  */
 const SUPPORT_SIGNAL = toSupportSignal(selectAllBetTotalsNewestFirst());
 
-export default function AchievementsPage() {
+export default async function AchievementsPage() {
+  await requireSession();
   const reference = new Date();
 
   /* Streaks are derived from the statement, never stored. The ledger is the same

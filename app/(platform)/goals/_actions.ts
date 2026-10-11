@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
+import { requireSession } from '@modules/identity';
 import { formatBRL } from '@shared/ui/money-text';
 
 import {
@@ -16,13 +17,12 @@ import { createSavingsGoal, recordMovement } from './_savings-goals-store';
 /**
  * The savings-goal write side.
  *
- * TODO(identity, gamification): a Server Action is a **public POST endpoint** —
- * anyone can call these, from anywhere, with anything. Each one has to open with
- * `const session = await requireSession()` and pass `session.userId` into the use
- * case, and the store has to be keyed by that user. Until the identity module
- * lands there is one shared set of goals and no caller check at all: this is safe
- * only because the demo runs on one machine with nothing real in it. Do not ship
- * it as it stands.
+ * A Server Action is a **public POST endpoint** — anyone can call these, from
+ * anywhere, with anything — so each one opens with `requireSession()`.
+ *
+ * TODO(gamification): the store is still **one shared set of goals** for every
+ * signed-in user. The user's id has to be passed into the use case and the store
+ * keyed by it before this holds anything real. Do not ship it as it stands.
  *
  * The parsing below is not the part that is missing. An action never trusts its
  * input regardless of which page it was reachable from, which is why the bounds
@@ -82,6 +82,8 @@ function toFirstMessage(error: z.ZodError): string {
 }
 
 export async function createSavingsGoalAction(formData: FormData): Promise<GoalActionResult> {
+  await requireSession();
+
   const parsed = createSavingsGoalSchema.safeParse({
     title: formData.get('title'),
     purpose: formData.get('purpose'),
@@ -99,6 +101,8 @@ export async function createSavingsGoalAction(formData: FormData): Promise<GoalA
 }
 
 export async function recordMovementAction(formData: FormData): Promise<GoalActionResult> {
+  await requireSession();
+
   const parsed = recordMovementSchema.safeParse({
     goalId: formData.get('goalId'),
     direction: formData.get('direction'),
