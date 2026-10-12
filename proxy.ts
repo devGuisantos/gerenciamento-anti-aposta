@@ -40,9 +40,14 @@ export function proxy(request: NextRequest) {
   return response;
 }
 
-/** Every route in `app/(platform)/`. A new screen there is added here too. */
+/**
+ * Every route in `app/(platform)/`, plus the simulated bank's screens: the
+ * platform session stands in for the bank's own login there. A new screen in
+ * either is added here too.
+ */
 export const config = {
   matcher: [
+    '/sandbox/:path*',
     '/dashboard/:path*',
     '/transactions/:path*',
     '/bets/:path*',

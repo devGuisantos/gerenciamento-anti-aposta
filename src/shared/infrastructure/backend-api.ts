@@ -3,7 +3,17 @@ import { z } from 'zod';
 
 import { env } from './env';
 
-const API_PREFIX = '/api/v1';
+/**
+ * The backend serves two systems: this product's own API, and the simulated
+ * bank (`sandbox-bank`), which is another institution that happens to share the
+ * process and so lives outside `/api/v1`.
+ */
+const SURFACE_PREFIXES = {
+  API: '/api/v1',
+  SANDBOX: '/sandbox',
+} as const;
+
+export type BackendSurface = keyof typeof SURFACE_PREFIXES;
 
 /** Shown when the backend is unreachable or answers with something unexpected. */
 const BACKEND_UNAVAILABLE_MESSAGE = 'Não conseguimos conectar ao servidor. Tente novamente em instantes.';
@@ -31,7 +41,9 @@ const UNAVAILABLE: BackendFailure = {
 
 type BackendRequest<T> = {
   readonly method: 'GET' | 'POST' | 'DELETE';
-  /** Relative to `/api/v1`, e.g. `/identity/sessions`. */
+  /** Which system is called; `API` unless said otherwise. */
+  readonly surface?: BackendSurface;
+  /** Relative to the surface's prefix, e.g. `/identity/sessions`. */
   readonly path: string;
   readonly body?: unknown;
   readonly sessionToken?: string;
@@ -45,7 +57,8 @@ type BackendRequest<T> = {
  * Server-only: it reads `env`, and the session token must never reach the browser.
  */
 export async function callBackend<T>(request: BackendRequest<T>): Promise<BackendResult<T>> {
-  const response = await fetch(`${env.BACKEND_API_URL}${API_PREFIX}${request.path}`, {
+  const prefix = SURFACE_PREFIXES[request.surface ?? 'API'];
+  const response = await fetch(`${env.BACKEND_API_URL}${prefix}${request.path}`, {
     method: request.method,
     headers: { ...headersFor(request), ...(await forwardedClientAddress()) },
     body: request.body === undefined ? undefined : JSON.stringify(request.body),

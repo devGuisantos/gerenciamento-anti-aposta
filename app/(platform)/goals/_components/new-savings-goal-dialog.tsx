@@ -32,7 +32,7 @@ import {
   type GoalPurpose,
 } from '../_savings-goal';
 import { AmountField } from './amount-field';
-import { FormError } from './form-error';
+import { FormError } from '@shared/ui/form-error';
 
 const DEFAULT_PURPOSE: GoalPurpose = 'EMERGENCY_FUND';
 

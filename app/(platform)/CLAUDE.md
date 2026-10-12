@@ -136,6 +136,40 @@ Rules this screen establishes:
 - `SelectValue` needs **explicit children**. Radix fills it from the selected item, and items only
   register once the portal opens — leave it empty and the trigger renders blank on the server.
 
+## `/accounts` — Contas conectadas, the Open Finance flow
+
+The first screen in this group that reads **real backend data** rather than a fixture: the consent,
+the shared accounts and the newest statement rows all come from backend-anti-aposta. The rest of the
+product still reads fixtures, which is why the header's "Dados simulados" stays.
+
+- **One card per state, decided by the backend's status.** `AUTHORISED` shows `ConsentCard`
+  (accounts, last sync, "Sincronizar", "Revogar"); anything else shows `ConnectCard`, which says
+  what is read and what is not *before* the person leaves for the bank, plus one neutral line about
+  the last attempt (`PREVIOUS_CONSENT_COPY`).
+- **"Conectar" is a plain `<form action>`**, so it works before hydration; the action redirects the
+  browser to the bank's own screen (`app/sandbox/authorize`), outside this layout on purpose.
+- **The outcome comes back as a code.** `/api/open-finance/callback` redirects here with
+  `conexao`/`motivo`; `ConnectionNotice` renders from `CONNECTION_FAILURE_COPY` and falls back to
+  one generic line. Never render a query-string value as text.
+- **Sync says what it found, including nothing.** "Tudo em dia" is an answer, not an error.
+- **Revoking states the consequence and stops.** No red, no second confirmation, no "tem certeza?".
+- **The simulated bank's ledger lives here too**, in its own card that says in its first sentence
+  that it happens on the bank's side and that nothing in it is real. The ready-made examples each
+  exercise one detection signal, and one is a purchase the classifier must leave alone. A movement
+  booked there appears only after "Sincronizar" — never immediately, which would misrepresent how
+  Open Finance works.
+- **Values from `@modules/*` reach Client Components as props.** Those modules are server-only;
+  `BankLedgerForm` gets the demo movements and entry types from the page.
+
+## `app/sandbox/` — the bank's screens
+
+Outside `(platform)`: the person has *left* anti-aposta for their bank, and the screenshot has to
+show the hand-over. Its own header with the bank's name and a "Banco simulado" marker, no sidebar,
+the same tokens. `proxy.ts` gates it like the app (the platform session stands in for the bank's
+login). A request the bank refuses is answered on the bank's screen and **never redirected** — a
+bad redirect is where an authorisation code must not go. Nothing on the authorisation screen is
+pre-selected.
+
 ## `/bets` — the consumption reframing
 
 `AccumulatedCost` carries two reframings of the same total: fixed income answers "what would it
