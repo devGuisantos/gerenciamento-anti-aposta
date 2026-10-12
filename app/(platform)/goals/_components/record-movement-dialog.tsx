@@ -25,7 +25,7 @@ import { formatBRL } from '@shared/ui/money-text';
 import { recordMovementAction } from '../_actions';
 import type { MovementDirection } from '../_savings-goal';
 import { AmountField } from './amount-field';
-import { FormError } from './form-error';
+import { FormError } from '@shared/ui/form-error';
 
 type MovementCopy = {
   readonly triggerLabel: string;
