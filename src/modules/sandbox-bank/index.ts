@@ -1,10 +1,10 @@
 export {
   ACCOUNT_TYPES,
-  bookLedgerEntry,
+  bookLedgerEntryFor,
   decideAuthorisation,
   describeAuthorisationRequest,
   ENTRY_TYPES,
-  listBankAccounts,
+  listCustomerBankAccounts,
   PERMISSIONS,
   type AuthorisationDecision,
   type AuthorisationQuery,

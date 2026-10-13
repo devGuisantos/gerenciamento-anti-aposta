@@ -1,54 +1,51 @@
-import { findCurrentUser } from '@modules/identity';
-import { subscribeToNotifications } from '@modules/notifications';
+import { readSessionToken } from '@modules/identity';
+import { openNotificationStream } from '@modules/notifications';
 
 /** An open SSE connection must never be cached or statically rendered. */
 export const dynamic = 'force-dynamic';
 
-const KEEP_ALIVE_MS = 25_000;
+const UNAVAILABLE = 503;
 
 /**
- * The signed-in user's own notifications, and nobody else's. Checked once when
- * the stream opens; a session revoked afterwards keeps this connection until the
- * tab closes or reconnects, which is the accepted cost of a long-lived stream.
+ * The signed-in person's own notifications, piped from backend-anti-aposta. The
+ * browser's `EventSource` cannot carry the session as a bearer token and must
+ * never see it, so this route holds the cookie and opens the backend stream on
+ * the browser's behalf — nothing more. The backend decides whose stream it is.
+ *
+ * `Last-Event-ID` is forwarded, which is what makes a reconnection resume where
+ * it dropped instead of losing what arrived in between. Closing the tab aborts
+ * `request.signal`, which closes the upstream stream with it.
+ *
+ * A session the backend refuses comes back as its `401`: `EventSource` treats
+ * any non-200 as final and stops retrying, which is right for a signed-out tab.
  */
-export async function GET(): Promise<Response> {
-  const user = await findCurrentUser();
+export async function GET(request: Request): Promise<Response> {
+  const sessionToken = await readSessionToken();
 
-  if (user === null) {
+  if (sessionToken === null) {
     return new Response(null, { status: 401 });
   }
 
-  const encoder = new TextEncoder();
-  let cleanup: (() => void) | undefined;
-
-  const stream = new ReadableStream({
-    start(controller) {
-      const unsubscribe = subscribeToNotifications(user.id, (notification) => {
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify(notification)}\n\n`),
-        );
-      });
-
-      // Proxies drop an idle connection; a comment frame keeps it warm.
-      const keepAlive = setInterval(() => {
-        controller.enqueue(encoder.encode(': keep-alive\n\n'));
-      }, KEEP_ALIVE_MS);
-
-      cleanup = () => {
-        clearInterval(keepAlive);
-        unsubscribe();
-      };
-    },
-    cancel() {
-      cleanup?.();
-    },
+  const upstream = await openNotificationStream({
+    sessionToken,
+    lastEventId: request.headers.get('last-event-id'),
+    signal: request.signal,
   });
 
-  return new Response(stream, {
+  if (upstream === null || upstream.body === null) {
+    return new Response(null, { status: UNAVAILABLE });
+  }
+
+  if (!upstream.ok) {
+    return new Response(null, { status: upstream.status });
+  }
+
+  return new Response(upstream.body, {
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
     },
   });
 }

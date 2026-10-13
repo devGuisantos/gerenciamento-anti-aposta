@@ -14,9 +14,9 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { PlatformNotification } from '@modules/notifications';
+import type { DemoNotificationDraft } from '@modules/notifications';
 
-const FIXED_INCOME_ANNUAL_RATE_PERCENT = 11.4;
+import { sendDemoNotificationAction } from '../_actions';
 
 /**
  * One badge per family, so a demo can show each mark and both kinds of evidence.
@@ -54,12 +54,9 @@ const BADGE_PRESETS = [
   },
 ] as const;
 
-function toBadgeNotification(
-  preset: (typeof BADGE_PRESETS)[number],
-): PlatformNotification {
+function toBadgeDraft(preset: (typeof BADGE_PRESETS)[number]): DemoNotificationDraft {
   return {
-    kind: 'badge-awarded',
-    id: '',
+    kind: 'BADGE_AWARDED',
     badgeId: preset.badgeId,
     title: preset.title,
     description: preset.description,
@@ -68,67 +65,60 @@ function toBadgeNotification(
 
 /** Presets so a demo needs one click, with the nudge fields still editable. */
 const PRESETS = {
-  streak: { kind: 'streak-broken', id: '', previousDays: 11 },
+  streak: { kind: 'STREAK_BROKEN', previousDays: 11 },
   goal: {
-    kind: 'goal-reached',
-    id: '',
+    kind: 'GOAL_REACHED',
     label: 'Guardar R$ 500,00 até o fim do mês',
     amountInCents: 50_000,
   },
-} as const satisfies Record<string, PlatformNotification>;
+} as const satisfies Record<string, DemoNotificationDraft>;
 
-async function publish(notification: PlatformNotification) {
-  const response = await fetch('/api/notifications', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(notification),
-  });
+type NotificationConsoleProps = {
+  /** A whole user id, or `null` while none is chosen — then nothing can be sent. */
+  readonly recipientId: string | null;
+};
 
-  if (!response.ok) {
-    toast.error('Não foi possível publicar a notificação.');
-    return;
-  }
-
-  const { delivered } = (await response.json()) as { delivered: number };
-  toast.success(
-    delivered === 0
-      ? 'Publicada, mas nenhuma aba está conectada ao stream.'
-      : `Publicada para ${delivered} aba(s) conectada(s).`,
-  );
-}
-
-export function NotificationConsole() {
+/**
+ * Sends, by hand, the notifications the detection and gamification flows will
+ * emit on their own — to one person, through the backend's stream. A nudge
+ * carries the amount and nothing computed from it: the backend reframes it
+ * with the awareness context's rate, so the console cannot show a figure the
+ * product would not.
+ */
+export function NotificationConsole({ recipientId }: NotificationConsoleProps) {
   const [merchant, setMerchant] = React.useState('Bet365');
   const [amount, setAmount] = React.useState('500,00');
   const [monthlyTotal, setMonthlyTotal] = React.useState('1840,00');
   const [matchedBy, setMatchedBy] = React.useState('MCC 7995');
-  const [isSending, setIsSending] = React.useState(false);
+  const [isSending, startSending] = React.useTransition();
+  const isDisabled = isSending || recipientId === null;
 
-  const send = async (notification: PlatformNotification) => {
-    setIsSending(true);
-    try {
-      await publish(notification);
-    } finally {
-      setIsSending(false);
+  function send(draft: DemoNotificationDraft) {
+    if (recipientId === null) {
+      return;
     }
-  };
 
-  const sendNudge = () => {
-    const amountInCents = toCents(amount);
+    startSending(async () => {
+      const result = await sendDemoNotificationAction(recipientId, draft);
 
-    return send({
-      kind: 'awareness-nudge',
-      id: '',
+      if (result.ok) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
+    });
+  }
+
+  function sendNudge() {
+    send({
+      kind: 'AWARENESS_NUDGE',
       merchant,
-      amountInCents,
-      yieldInCents: Math.round(
-        amountInCents * (1 + FIXED_INCOME_ANNUAL_RATE_PERCENT / 100),
-      ),
-      annualRatePercent: FIXED_INCOME_ANNUAL_RATE_PERCENT,
+      // A bet leaves the account, so it travels as a debit, like on the statement.
+      amountInCents: -toCents(amount),
       monthlyTotalInCents: toCents(monthlyTotal),
       matchedBy,
     });
-  };
+  }
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -136,9 +126,8 @@ export function NotificationConsole() {
         <CardHeader>
           <CardTitle>Nudge de conscientização</CardTitle>
           <CardDescription>
-            Abre o modal de reenquadramento em todas as abas conectadas. O
-            rendimento é calculado a {String(FIXED_INCOME_ANNUAL_RATE_PERCENT).replace('.', ',')}% ao
-            ano sobre o valor informado.
+            Abre o modal de reenquadramento nas abas abertas do destinatário. O rendimento é
+            calculado pelo back-end, com a taxa do módulo de conscientização.
           </CardDescription>
         </CardHeader>
 
@@ -172,11 +161,7 @@ export function NotificationConsole() {
             />
           </div>
 
-          <Button
-            className="h-10 w-full"
-            disabled={isSending}
-            onClick={sendNudge}
-          >
+          <Button className="h-10 w-full" disabled={isDisabled} onClick={sendNudge}>
             <Send />
             Disparar nudge
           </Button>
@@ -199,8 +184,8 @@ export function NotificationConsole() {
               key={preset.badgeId}
               variant="outline"
               className="h-10 w-full justify-start"
-              disabled={isSending}
-              onClick={() => send(toBadgeNotification(preset))}
+              disabled={isDisabled}
+              onClick={() => send(toBadgeDraft(preset))}
             >
               {preset.label}
             </Button>
@@ -208,7 +193,7 @@ export function NotificationConsole() {
           <Button
             variant="outline"
             className="h-10 w-full justify-start"
-            disabled={isSending}
+            disabled={isDisabled}
             onClick={() => send(PRESETS.streak)}
           >
             Sequência interrompida
@@ -216,7 +201,7 @@ export function NotificationConsole() {
           <Button
             variant="outline"
             className="h-10 w-full justify-start"
-            disabled={isSending}
+            disabled={isDisabled}
             onClick={() => send(PRESETS.goal)}
           >
             Meta alcançada
@@ -254,8 +239,14 @@ function Field({
   );
 }
 
-/** "1840,00" and "1840.00" both mean 184000 cents. */
+/**
+ * "1840,00", "1.840,00" and "1840.00" all mean 184000 cents. With a comma the
+ * dots are thousands separators; without one, a dot is the decimal point.
+ */
 function toCents(value: string): number {
-  const normalised = Number(value.replace(/\./g, '').replace(',', '.'));
+  const trimmed = value.trim();
+  const decimal = trimmed.includes(',') ? trimmed.replace(/\./g, '').replace(',', '.') : trimmed;
+  const normalised = Number(decimal);
+
   return Number.isFinite(normalised) ? Math.round(normalised * 100) : 0;
 }

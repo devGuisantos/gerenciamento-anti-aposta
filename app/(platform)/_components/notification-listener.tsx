@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -15,7 +16,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import type { PlatformNotification } from '@modules/notifications';
+import type {
+  AwarenessNudgeNotification,
+  PlatformNotification,
+  TransactionsIngestedNotification,
+} from '@modules/notifications';
+import { assertNever } from '@shared/domain/assert-never';
 import { createConfettiBurst, type ConfettiBurst } from '@shared/ui/milestone-confetti';
 import { formatBRL } from '@shared/ui/money-text';
 
@@ -23,14 +29,19 @@ import {
   BadgeAwardedDialog,
   type BadgeAwardedNotification,
 } from '../achievements/_components/badge-awarded-dialog';
+import {
+  NOTIFICATION_EVENTS,
+  parseNotification,
+  TRANSACTIONS_INGESTED_TOAST_ID,
+} from './notification-wire';
 
-type NudgeNotification = Extract<
-  PlatformNotification,
-  { kind: 'awareness-nudge' }
->;
+const STREAM_URL = '/api/notifications/stream';
 
 /**
- * Subscribes to the SSE stream and renders whatever arrives.
+ * Subscribes to the SSE stream and renders whatever arrives. The stream is the
+ * signed-in person's own, piped from backend-anti-aposta; `EventSource` sends
+ * `Last-Event-ID` on its own when it reconnects, so a dropped connection
+ * resumes instead of losing what arrived in between.
  *
  * Two kinds open a modal and two do not, and the split is a product decision
  * rather than a styling one. An awareness nudge interrupts because §4.1 of the TCC
@@ -41,45 +52,66 @@ type NudgeNotification = Extract<
  * A **broken streak stays a toast**, and must. Celebrating in a modal while
  * reporting a setback in passing is the no-shaming rule as a layout decision; a
  * modal announcing a lost streak would be the product scolding somebody.
+ *
+ * **New transactions refresh the screen in place.** The statement, the charts
+ * and the accounts are Server Components, so `router.refresh()` re-reads them
+ * without a reload and without losing anything typed into a form.
  */
 export function NotificationListener() {
-  const [nudge, setNudge] = React.useState<NudgeNotification | null>(null);
+  const router = useRouter();
+  const [nudge, setNudge] = React.useState<AwarenessNudgeNotification | null>(null);
   const [award, setAward] = React.useState<BadgeAwardedNotification | null>(null);
   const [burst, setBurst] = React.useState<ConfettiBurst | null>(null);
 
   React.useEffect(() => {
-    const source = new EventSource('/api/notifications/stream');
+    const source = new EventSource(STREAM_URL);
 
-    source.onmessage = (event) => {
-      const notification = JSON.parse(event.data) as PlatformNotification;
-
+    function present(notification: PlatformNotification) {
       switch (notification.kind) {
-        case 'awareness-nudge':
+        case 'AWARENESS_NUDGE':
           setNudge(notification);
           break;
-        case 'badge-awarded':
+        case 'BADGE_AWARDED':
           setAward(notification);
           /* Built here, in the handler for the event itself: the dialog renders,
              and `Math.random()` during render is impure. Reduced motion is
              honoured where it is drawn, not where it is created. */
           setBurst(createConfettiBurst());
           break;
-        case 'streak-broken':
+        case 'STREAK_BROKEN':
           // Stated neutrally, never as a reprimand.
           toast.info('Sua sequência recomeçou', {
             description: `A anterior foi de ${notification.previousDays} dias sem apostas.`,
           });
           break;
-        case 'goal-reached':
+        case 'GOAL_REACHED':
           toast.success('Meta alcançada', {
             description: `${notification.label} — ${formatBRL(notification.amountInCents)}.`,
           });
           break;
+        case 'TRANSACTIONS_INGESTED':
+          announceTransactions(notification);
+          router.refresh();
+          break;
+        default:
+          assertNever(notification);
       }
-    };
+    }
+
+    function receive(event: MessageEvent<string>) {
+      const notification = parseNotification(event.data);
+
+      if (notification !== null) {
+        present(notification);
+      }
+    }
+
+    for (const name of NOTIFICATION_EVENTS) {
+      source.addEventListener(name, receive);
+    }
 
     return () => source.close();
-  }, []);
+  }, [router]);
 
   return (
     <>
@@ -99,8 +131,21 @@ export function NotificationListener() {
   );
 }
 
-function NudgeBody({ nudge }: { readonly nudge: NudgeNotification }) {
-  const gainInCents = nudge.yieldInCents - nudge.amountInCents;
+/**
+ * One toast however the movements arrived. The "Sincronizar" button answers
+ * with the same id, so pressing it does not stack its own toast on this one.
+ */
+function announceTransactions(notification: TransactionsIngestedNotification) {
+  const count = notification.ingestedCount;
+
+  toast(count === 1 ? '1 transação nova chegou do banco.' : `${count} transações novas chegaram do banco.`, {
+    id: TRANSACTIONS_INGESTED_TOAST_ID,
+  });
+}
+
+function NudgeBody({ nudge }: { readonly nudge: AwarenessNudgeNotification }) {
+  // A bet arrives as a debit; the yield is reframed from its size, not its sign.
+  const gainInCents = nudge.yieldInCents - Math.abs(nudge.amountInCents);
   const rate = nudge.annualRatePercent.toFixed(1).replace('.', ',');
 
   return (

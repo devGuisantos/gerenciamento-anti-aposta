@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { readSessionToken, requireSession } from '@modules/identity';
 import {
   fetchCurrentConsent,
@@ -10,15 +9,7 @@ import {
   type Consent,
   type RecentTransaction,
 } from '@modules/open-finance';
-import {
-  DEMO_MOVEMENTS,
-  ENTRY_TYPES,
-  GAMBLING_MCC,
-  listBankAccounts,
-  type BankAccount,
-} from '@modules/sandbox-bank';
 
-import { BankLedgerForm } from './_components/bank-ledger-form';
 import { ConnectCard } from './_components/connect-card';
 import { ConnectionNotice, type ConnectionOutcome } from './_components/connection-notice';
 import { ConsentCard } from './_components/consent-card';
@@ -64,21 +55,18 @@ type AccountsScreen = {
   readonly consent: Consent | null;
   readonly accounts: readonly ConnectedAccount[];
   readonly transactions: readonly RecentTransaction[];
-  /** `null` when the bank's screens could not be reached. */
-  readonly bankAccounts: readonly BankAccount[] | null;
 };
 
 /**
- * Four independent reads, made together. A backend failure on the consent
- * itself throws to the error boundary; the other three degrade to an empty
+ * Three independent reads, made together. A backend failure on the consent
+ * itself throws to the error boundary; the other two degrade to an empty
  * section, because a missing list is better than a broken screen.
  */
 async function loadScreen(token: string): Promise<AccountsScreen> {
-  const [consent, accounts, transactions, bankAccounts] = await Promise.all([
+  const [consent, accounts, transactions] = await Promise.all([
     fetchCurrentConsent(token),
     listConnectedAccounts(token),
     listRecentTransactions(token),
-    listBankAccounts(token),
   ]);
 
   if (!consent.ok) {
@@ -89,15 +77,15 @@ async function loadScreen(token: string): Promise<AccountsScreen> {
     consent: consent.value,
     accounts: accounts.ok ? accounts.value : [],
     transactions: transactions.ok ? transactions.value : [],
-    bankAccounts: bankAccounts.ok ? bankAccounts.value : null,
   };
 }
 
 /**
  * "Contas conectadas": the whole Open Finance flow from the person's side —
  * connect (and be sent to the bank to authorise), see what is shared,
- * synchronise, revoke — plus the simulated bank's own ledger, where a
- * demonstration books the movements the platform will then read.
+ * synchronise, revoke. Movements booked at the bank arrive on their own, over
+ * the notification stream, which refreshes this screen in place; the simulated
+ * bank's ledger lives on the demonstration console, `/admin`.
  */
 export default async function AccountsPage({ searchParams }: PageProps<'/accounts'>) {
   await requireSession();
@@ -129,41 +117,6 @@ export default async function AccountsPage({ searchParams }: PageProps<'/account
         )}
         {isAuthorised ? <RecentTransactions transactions={screen.transactions} /> : null}
       </div>
-
-      <SandboxBankSection bankAccounts={screen.bankAccounts} />
     </div>
-  );
-}
-
-function SandboxBankSection({
-  bankAccounts,
-}: {
-  readonly bankAccounts: readonly BankAccount[] | null;
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Banco simulado: registrar um lançamento</CardTitle>
-        <CardDescription>
-          Ambiente de demonstração. Isto acontece do lado do Banco Andorinha, como se você tivesse
-          usado a conta ou o cartão: o lançamento fica no banco e só chega ao anti-aposta quando
-          você sincroniza. Nenhum valor aqui é real.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {bankAccounts === null || bankAccounts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            O banco simulado não está disponível agora.
-          </p>
-        ) : (
-          <BankLedgerForm
-            accounts={bankAccounts}
-            movements={DEMO_MOVEMENTS}
-            entryTypes={ENTRY_TYPES}
-            gamblingMcc={GAMBLING_MCC}
-          />
-        )}
-      </CardContent>
-    </Card>
   );
 }

@@ -15,7 +15,7 @@ The bank's **front end for the person** — nothing else:
 
 ```
 infrastructure/sandbox-bank-api.ts   # describeAuthorisationRequest, decideAuthorisation,
-                                     # listBankAccounts, bookLedgerEntry
+                                     # listCustomerBankAccounts, bookLedgerEntryFor
 domain/demo-movements.ts             # the ready-made demo movements; GAMBLING_MCC, once
 index.ts
 ```
@@ -33,8 +33,10 @@ the demonstration has been short-circuited.
   into the browser bundle once, and `next build` refused it.
 - **The platform session stands in for the bank's login.** The backend identifies the bank's
   customer by it. State that limitation in the paper rather than imply a separate bank login.
-- **Booked movements reach the platform only through a synchronisation.** `bookLedgerEntry` writes
-  to the bank and nowhere else. The route does not exist in production (the backend never mounts
-  it), and then answers 404.
+- **Booked movements reach the platform only through a synchronisation.** `bookLedgerEntryFor`
+  writes to the bank and nowhere else; the bank then sends the platform a notice and the platform
+  synchronises at once, over the protocol. The routes are the demonstration console's (`/admin`),
+  name the customer in the path, and do not exist in production (the backend never mounts them) —
+  there they answer 404. `listCustomerBankAccounts` opens nothing for an id the bank never saw.
 - Demo data is synthetic: invented names, the seed's invented CNPJ. Never a real CPF, CNPJ or
   account number.

@@ -23,7 +23,7 @@ import { BadgeMedal } from './badge-medal';
 
 export type BadgeAwardedNotification = Extract<
   PlatformNotification,
-  { kind: 'badge-awarded' }
+  { kind: 'BADGE_AWARDED' }
 >;
 
 type BadgeAwardedDialogProps = {

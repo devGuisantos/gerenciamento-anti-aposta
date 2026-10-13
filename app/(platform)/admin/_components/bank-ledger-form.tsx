@@ -22,8 +22,8 @@ import type {
 import { formatBRL } from '@shared/ui/money-text';
 import { FormError } from '@shared/ui/form-error';
 
-import { bookLedgerEntryAction } from '../_actions';
-import { ENTRY_TYPE_COPY } from '../_consent-copy';
+import { bookLedgerEntryForAction } from '../_actions';
+import { ENTRY_TYPE_COPY } from '../_admin-copy';
 import { AMOUNT_PATTERN } from '../_ledger-entry-form';
 
 type Draft = {
@@ -73,15 +73,19 @@ function draftFrom(movement: DemoMovement, accounts: readonly BankAccount[]): Dr
 }
 
 /**
- * Books a movement at the simulated bank — "acabei de apostar R$ 50" — so a
- * demonstration can show the whole path: the bank's ledger, then a sync, then
- * the classification. The ready-made examples each exercise one detection
- * signal, and one is a purchase the classifier must leave alone.
+ * Books a movement at the simulated bank, on the recipient's account —
+ * "acabei de apostar R$ 50" — so a demonstration can show the whole path: the
+ * bank's ledger, the bank's notice, the platform's synchronisation and the
+ * classification, ending on the recipient's open screen. The ready-made
+ * examples each exercise one detection signal, and one is a purchase the
+ * classifier must leave alone.
  *
- * It writes to the bank, never to the statement: nothing appears on the
- * platform until somebody synchronises, which is the honest version.
+ * It writes to the bank, never to the statement. The statement changes because
+ * the platform reads the bank again — over the protocol, as from any bank.
  */
 type BankLedgerFormProps = {
+  /** Whose account this books on; the backend checks the account is theirs. */
+  readonly recipientId: string;
   readonly accounts: readonly BankAccount[];
   /*
    * The bank's vocabulary arrives as props: `@modules/sandbox-bank` is a
@@ -93,7 +97,13 @@ type BankLedgerFormProps = {
   readonly gamblingMcc: number;
 };
 
-export function BankLedgerForm({ accounts, movements, entryTypes, gamblingMcc }: BankLedgerFormProps) {
+export function BankLedgerForm({
+  recipientId,
+  accounts,
+  movements,
+  entryTypes,
+  gamblingMcc,
+}: BankLedgerFormProps) {
   const [draft, setDraft] = useState<Draft>(() => draftFrom(movements[0] ?? emptyMovement(), accounts));
   const [failure, setFailure] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -112,7 +122,7 @@ export function BankLedgerForm({ accounts, movements, entryTypes, gamblingMcc }:
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     startTransition(async () => {
-      const result = await bookLedgerEntryAction(draft);
+      const result = await bookLedgerEntryForAction(recipientId, draft);
 
       setFailure(result.ok ? null : result.message);
 
