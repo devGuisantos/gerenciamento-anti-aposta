@@ -1,16 +1,28 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import { readSessionToken, requireSession } from '@modules/identity';
 import { decideAuthorisation } from '@modules/sandbox-bank';
 
-export type AuthorisationFormState = { readonly message: string | null };
+/**
+ * `redirectTo` is where the bank sends the browser next. It is handed back
+ * instead of `redirect()`ed because the target is a Route Handler, and a
+ * Server Action redirect is a client-side navigation: the router would render
+ * the page the handler bounces to while keeping the handler's URL as the
+ * current one, so the next Server Action on that page would be POSTed to the
+ * handler and answered `405`. A real bank is another origin and gets a full
+ * page load; this one has to ask for it.
+ */
+export type AuthorisationFormState = {
+  readonly message: string | null;
+  readonly redirectTo: string | null;
+};
 
 /** The form arrived without the request it answers — a crafted POST, not a person. */
 const MALFORMED_STATE: AuthorisationFormState = {
   message: 'Não conseguimos ler esta autorização. Volte ao anti-aposta e comece de novo.',
+  redirectTo: null,
 };
 
 /**
@@ -52,8 +64,8 @@ export async function decideAuthorisationAction(
   const result = await decideAuthorisation(token, fields.data);
 
   if (!result.ok) {
-    return { message: result.failure.message };
+    return { message: result.failure.message, redirectTo: null };
   }
 
-  redirect(result.value);
+  return { message: null, redirectTo: result.value };
 }
