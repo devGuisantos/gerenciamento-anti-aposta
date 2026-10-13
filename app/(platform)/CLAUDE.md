@@ -61,23 +61,29 @@ a nav entry that 404s is a broken nav, which is why the unimplemented screens re
 
 ## `/admin` — the demo console
 
-An unlisted route that publishes notifications by hand while the modules do not exist. It is
-deliberately **not** in `NAV_GROUPS`: reachable only by typing the URL, and `robots: noindex`.
+An unlisted route for demonstrations, deliberately **not** in `NAV_GROUPS`: reachable only by
+typing the URL, and `robots: noindex`. It does two things, both **to one person, chosen by user
+id** (`RecipientField`, which starts as the presenter's own id and shows it to copy):
 
-The page and both API routes require a session (`requireSession` on the page, `findCurrentUser` and
-a `401` on the routes), and the broker is **keyed by user**: the console publishes to the caller's
-own open tabs and nobody else's. That is the security property, not the unlisting — a channel that
-reached every user would let anyone put words of their choosing in an awareness-nudge modal. The
-POST also requires `application/json`, which a cross-site form cannot send without a preflight.
+- **Books movements at the simulated bank** on that person's account (`BankLedgerPanel` →
+  `BankLedgerForm`). The bank then notices the platform, which synchronises at once, and the
+  person's open screens update over the stream. A person who never reached the bank has no accounts
+  there yet, and the panel says so — the listing opens none.
+- **Sends notifications by hand** (`NotificationConsole`): the nudge, badges, a broken streak, a
+  reached goal — the ones the detection and gamification flows will emit on their own. A nudge
+  carries only the amount; the backend reframes it.
 
-Notifications are delivered by real Server-Sent Events, so this exercises the transport the
-`notifications` module will own rather than faking it with local state. `NotificationListener` in
-the layout subscribes once for the whole app: an awareness nudge opens a **modal** (§4.1 of the
-TCC) and so does an awarded badge (`BadgeAwardedDialog`, with confetti), while a broken streak and a
-reached savings goal are toasts. That split is a product decision rather than a styling one — see
-`/achievements` below, and the notifications module’s own rules. The broker is still in-process —
-it does not survive a restart or cross instances — which is the part the real implementation
-replaces.
+Security: every action calls `requireSession()`, and the backend mounts the console's routes
+(`/sandbox/bank/customers/…`, `/api/v1/users/{id}/notifications`) **only where demo writes are
+on — never in production**. That switch is the property, not the unlisting: any signed-in person
+may use the console, so it must not exist where real people are. Off, the backend answers 404 and
+the console says it is unavailable here.
+
+`NotificationListener` in the layout subscribes once for the whole app: an awareness nudge opens a
+**modal** (§4.1 of the TCC) and so does an awarded badge (`BadgeAwardedDialog`, with confetti),
+while a broken streak, a reached goal and new transactions are toasts. That split is a product
+decision rather than a styling one — see `/achievements` below, and
+`src/modules/notifications/CLAUDE.md`.
 
 ## Data
 
@@ -153,13 +159,13 @@ product still reads fixtures, which is why the header's "Dados simulados" stays.
   one generic line. Never render a query-string value as text.
 - **Sync says what it found, including nothing.** "Tudo em dia" is an answer, not an error.
 - **Revoking states the consequence and stops.** No red, no second confirmation, no "tem certeza?".
-- **The simulated bank's ledger lives here too**, in its own card that says in its first sentence
-  that it happens on the bank's side and that nothing in it is real. The ready-made examples each
-  exercise one detection signal, and one is a purchase the classifier must leave alone. A movement
-  booked there appears only after "Sincronizar" — never immediately, which would misrepresent how
-  Open Finance works.
-- **Values from `@modules/*` reach Client Components as props.** Those modules are server-only;
-  `BankLedgerForm` gets the demo movements and entry types from the page.
+- **Movements arrive on their own.** When the bank books something on a shared account it notices
+  the platform, which synchronises over the protocol; `TRANSACTIONS_INGESTED` on the stream makes
+  `NotificationListener` call `router.refresh()`, so this screen and `/transactions` re-read in
+  place. The statement still changes only because the platform read the bank — never because the
+  bank wrote into it. "Sincronizar" stays for when the notice did not land.
+- **The simulated bank's ledger is on `/admin`**, not here: booking a movement is the bank's side
+  of a demonstration, and a person's own accounts screen is not where they would do it.
 
 ## `app/sandbox/` — the bank's screens
 
@@ -259,9 +265,8 @@ and the app keeps the ledger — the honest version of a savings goal.
   a `TODO(identity)` naming `requireSession()`; the store holds one shared set of goals because
   there is no user to key them by. Safe on a demo laptop, not shippable. The Zod parse is not the
   missing part — that is there, and an action re-checks every bound the form already enforced.
-- `_savings-goals-store.ts` is an in-process stand-in with the same limitations
-  `notifications/infrastructure/demo-broker.ts` documents: one Node process, no restart survival,
-  reset by an edit in `next dev`. The over-withdrawal check in it is an **aggregate invariant**
+- `_savings-goals-store.ts` is an in-process stand-in with the limitations that implies: one Node
+  process, no restart survival, reset by an edit in `next dev`. The over-withdrawal check in it is an **aggregate invariant**
   wearing a store's clothes — it moves into `Goal` with its negative case tested first.
 
 ## `/goals` — the betting ceiling

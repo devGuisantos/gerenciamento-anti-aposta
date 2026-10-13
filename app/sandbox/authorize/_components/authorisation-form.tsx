@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useActionState, useId, type FormEvent } from 'react';
+import { startTransition, useActionState, useEffect, useId, type FormEvent } from 'react';
 import { CreditCard, Landmark } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { FormError } from '@shared/ui/form-error';
 import { ACCOUNT_TYPE_COPY } from '../../_bank-copy';
 import { decideAuthorisationAction, type AuthorisationFormState } from '../_actions';
 
-const INITIAL_STATE: AuthorisationFormState = { message: null };
+const INITIAL_STATE: AuthorisationFormState = { message: null, redirectTo: null };
 
 type AuthorisationFormProps = {
   readonly accounts: readonly BankAccount[];
@@ -41,6 +41,14 @@ type AuthorisationFormProps = {
 export function AuthorisationForm({ accounts, request }: AuthorisationFormProps) {
   const [state, dispatch, isPending] = useActionState(decideAuthorisationAction, INITIAL_STATE);
   const legendId = useId();
+  const isLeaving = state.redirectTo !== null;
+
+  // A full page load back to anti-aposta's callback, as from any other bank.
+  useEffect(() => {
+    if (state.redirectTo !== null) {
+      window.location.assign(state.redirectTo);
+    }
+  }, [state.redirectTo]);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,12 +84,12 @@ export function AuthorisationForm({ accounts, request }: AuthorisationFormProps)
           value="REJECT"
           variant="outline"
           className="h-10"
-          disabled={isPending}
+          disabled={isPending || isLeaving}
         >
           Não autorizar
         </Button>
-        <Button type="submit" name="decision" value="APPROVE" className="h-10" disabled={isPending}>
-          {isPending ? 'Enviando…' : 'Autorizar compartilhamento'}
+        <Button type="submit" name="decision" value="APPROVE" className="h-10" disabled={isPending || isLeaving}>
+          {isPending || isLeaving ? 'Enviando…' : 'Autorizar compartilhamento'}
         </Button>
       </div>
     </form>

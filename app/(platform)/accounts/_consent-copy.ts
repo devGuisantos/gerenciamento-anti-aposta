@@ -1,5 +1,4 @@
 import type { ConsentStatus } from '@modules/open-finance';
-import type { EntryType } from '@modules/sandbox-bank';
 
 /** The consent's status, in words. The backend decides it; this only names it. */
 export const CONSENT_STATUS_COPY: Readonly<Record<ConsentStatus, string>> = {
@@ -43,16 +42,6 @@ export const CONNECTION_FAILURE_COPY: Readonly<Record<string, string>> = {
 
 export const GENERIC_CONNECTION_FAILURE =
   'Não foi possível concluir a conexão. Seus dados não foram alterados — tente de novo.';
-
-export const ENTRY_TYPE_COPY: Readonly<Record<EntryType, string>> = {
-  PIX: 'PIX',
-  CARTAO: 'Cartão',
-  TED: 'TED',
-  BOLETO: 'Boleto',
-  CONVENIO_ARRECADACAO: 'Débito automático',
-  FOLHA_PAGAMENTO: 'Salário',
-  TRANSFERENCIA_MESMA_INSTITUICAO: 'Transferência entre contas',
-};
 
 const DATE = new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit',

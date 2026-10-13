@@ -7,8 +7,7 @@
  * invariant**, not a storage detail — it moves into `Goal` with its negative case
  * tested first, and this file disappears.
  *
- * Deliberate limitations, because they matter if this is ever deployed — the same
- * ones `notifications/infrastructure/demo-broker.ts` carries:
+ * Deliberate limitations, because they matter if this is ever deployed:
  *
  * - State lives in one Node process. It does not survive a restart, it does not
  *   cross instances, and editing this file in `next dev` resets it.

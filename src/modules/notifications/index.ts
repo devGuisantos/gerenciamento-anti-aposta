@@ -1,11 +1,12 @@
-export {
-  NOTIFICATION_KINDS,
-  isNotificationKind,
-  type NotificationKind,
-  type PlatformNotification,
+export type {
+  AwarenessNudgeNotification,
+  BadgeAwardedNotification,
+  DemoNotificationDraft,
+  GoalReachedNotification,
+  NotificationKind,
+  PlatformNotification,
+  StreakBrokenNotification,
+  TransactionsIngestedNotification,
 } from './domain/notification';
 
-export {
-  publishNotification,
-  subscribeToNotifications,
-} from './infrastructure/demo-broker';
+export { openNotificationStream, sendDemoNotification } from './infrastructure/notifications-api';

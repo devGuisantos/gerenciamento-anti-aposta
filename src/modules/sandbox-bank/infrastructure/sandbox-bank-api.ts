@@ -119,14 +119,24 @@ export async function decideAuthorisation(
   return result.ok ? { ok: true, value: result.value.redirectTo } : result;
 }
 
-/** `GET /bank/accounts` — the person's own accounts at the bank. */
-export async function listBankAccounts(
+function customerPath(customerId: string): string {
+  return `/bank/customers/${encodeURIComponent(customerId)}/accounts`;
+}
+
+/**
+ * `GET /bank/customers/{customerId}/accounts` — somebody's accounts at the bank,
+ * for the demonstration console. It opens none: a customer who never reached
+ * the bank has an empty list. Like the booking route, it does not exist where
+ * the backend switched demo writes off (always in production), and answers 404.
+ */
+export async function listCustomerBankAccounts(
   sessionToken: string,
+  customerId: string,
 ): Promise<BackendResult<readonly BankAccount[]>> {
   const result = await callBackend({
     method: 'GET',
     surface: 'SANDBOX',
-    path: '/bank/accounts',
+    path: customerPath(customerId),
     sessionToken,
     responseSchema: bankAccountsSchema,
   });
@@ -135,20 +145,21 @@ export async function listBankAccounts(
 }
 
 /**
- * `POST /bank/accounts/{id}/ledger-entries` — books a movement at the bank. It
- * reaches the platform only when the platform next synchronises. The route does
- * not exist where the backend switched ledger writes off (always in production),
- * and then answers 404.
+ * `POST /bank/customers/{customerId}/accounts/{id}/ledger-entries` — books a
+ * movement on somebody's account. The bank then notices the platform, which
+ * synchronises at once, and that person's open screens update over the
+ * notification stream. Not mounted in production; answers 404 there.
  */
-export async function bookLedgerEntry(
+export async function bookLedgerEntryFor(
   sessionToken: string,
+  customerId: string,
   request: LedgerEntryRequest,
 ): Promise<BackendResult<BookedLedgerEntry>> {
   const { accountId, ...entry } = request;
   const result = await callBackend({
     method: 'POST',
     surface: 'SANDBOX',
-    path: `/bank/accounts/${encodeURIComponent(accountId)}/ledger-entries`,
+    path: `${customerPath(customerId)}/${encodeURIComponent(accountId)}/ledger-entries`,
     body: entry,
     sessionToken,
     responseSchema: ledgerEntrySchema,
