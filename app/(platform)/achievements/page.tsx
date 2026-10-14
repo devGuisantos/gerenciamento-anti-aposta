@@ -8,7 +8,6 @@ import { SupportCard } from '../transactions/_components/support-card';
 import { toLedgerRows } from '../transactions/_ledger-view';
 import { buildLedgerEntries } from '../transactions/_mock-ledger';
 import { toSupportSignal } from '../transactions/_support-signal';
-import { selectAllBetTotalsNewestFirst } from '../transactions/insights/_insights-view';
 import { MONTHLY_HISTORY } from '../transactions/insights/_mock-monthly-history';
 import { selectNextMilestone, toBadgeAwards, type ClosedMonth } from './_badges-view';
 import { BadgeCollection } from './_components/badge-collection';
@@ -53,7 +52,7 @@ const OLDEST_MONTHS_AGO = Math.max(...MONTHLY_HISTORY.map((month) => month.month
  * this is the gamification screen: the offer goes above everything, and the nudge
  * toward the next milestone is withheld while it stands.
  */
-const SUPPORT_SIGNAL = toSupportSignal(selectAllBetTotalsNewestFirst());
+const SUPPORT_SIGNAL = toSupportSignal(MONTHLY_HISTORY.map((month) => month.bets));
 
 export default async function AchievementsPage() {
   await requireSession();

@@ -1,32 +1,31 @@
 /**
- * Presentation model for the charts.
+ * Presentation model for the charts, built from the backend's monthly summary.
  *
- * As on the statement screen, month labels are resolved **once on the server** so
- * the interactive charts never call `new Date()` and cannot drift from the server
- * render.
+ * Every figure arrives as a non-negative magnitude per category, already
+ * bucketed by São Paulo calendar month, with betting following the
+ * classification rather than the category. What this file adds is the reader's
+ * choices — which metric, how many months — and labels resolved **once on the
+ * server**, so the interactive charts never call `new Date()`.
  */
-import { assertNever } from '@shared/domain/assert-never';
+/* Types only: this file reaches the browser, and the module is server-only. */
+import type { MonthlyTotals, TransactionCategory } from '@modules/open-finance';
 
-import { MONTHLY_HISTORY, type MonthlyTotals } from './_mock-monthly-history';
+import { CATEGORY_LABELS } from '../_statement-labels';
 
-const MONTH_FORMAT = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
+/** Month keys are calendar months, not instants; noon UTC on the 1st formats as that month anywhere. */
+const MONTH_FORMAT = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC', month: 'short' });
 const LONG_MONTH_FORMAT = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'UTC',
   month: 'long',
   year: 'numeric',
 });
 
-/** Which single series the main chart is plotting. One at a time, never two. */
-export type MetricId =
-  | 'TOTAL_SPENT'
-  | 'INCOME'
-  | 'BETS'
-  | 'GROCERIES'
-  | 'DINING'
-  | 'TRANSPORT'
-  | 'HOUSING'
-  | 'HEALTH'
-  | 'SUBSCRIPTIONS'
-  | 'SHOPPING';
+/**
+ * Which single series the main chart is plotting. One at a time, never two.
+ * `TOTAL_SPENT` is the one figure computed here, because the backend sends
+ * only its parts — a sum it sent could disagree with them.
+ */
+export type MetricId = 'TOTAL_SPENT' | TransactionCategory;
 
 export type Metric = {
   readonly id: MetricId;
@@ -35,92 +34,83 @@ export type Metric = {
   readonly description: string;
 };
 
+/**
+ * Exhaustive by type, and its key order is the picker's order: betting first
+ * after the total, since it is the series this product exists to show.
+ */
+const CATEGORY_DESCRIPTIONS: Readonly<Record<TransactionCategory, string>> = {
+  BETS: 'O que foi para casas de apostas no mês, já descontados os reembolsos.',
+  INCOME: 'Tudo que entrou na conta no mês.',
+  GROCERIES: 'Compras de supermercado no mês.',
+  DINING: 'Restaurantes e delivery no mês.',
+  TRANSPORT: 'Transporte e combustível no mês.',
+  HOUSING: 'Aluguel e contas da casa no mês.',
+  HEALTH: 'Farmácia, academia e saúde no mês.',
+  SUBSCRIPTIONS: 'Serviços recorrentes no mês.',
+  SHOPPING: 'Compras avulsas no mês.',
+  TRANSFER: 'Pix e transferências enviados no mês.',
+  OTHER: 'Saídas que não se encaixam em outra categoria.',
+};
+
+function isCategory(key: string): key is TransactionCategory {
+  return key in CATEGORY_DESCRIPTIONS;
+}
+
+const CATEGORIES: readonly TransactionCategory[] = Object.keys(CATEGORY_DESCRIPTIONS).filter(isCategory);
+
 export const METRICS: readonly Metric[] = [
   {
     id: 'TOTAL_SPENT',
     label: 'Tudo que saiu',
     description: 'A soma de todas as saídas do mês, apostas incluídas.',
   },
-  { id: 'INCOME', label: 'Entradas', description: 'Tudo que entrou na conta no mês.' },
-  { id: 'BETS', label: 'Apostas', description: 'O que foi para casas de apostas no mês.' },
-  { id: 'GROCERIES', label: 'Mercado', description: 'Compras de supermercado no mês.' },
-  { id: 'DINING', label: 'Alimentação', description: 'Restaurantes e delivery no mês.' },
-  { id: 'TRANSPORT', label: 'Transporte', description: 'Transporte e combustível no mês.' },
-  { id: 'HOUSING', label: 'Moradia', description: 'Aluguel e contas da casa no mês.' },
-  { id: 'HEALTH', label: 'Saúde', description: 'Farmácia, academia e saúde no mês.' },
-  { id: 'SUBSCRIPTIONS', label: 'Assinaturas', description: 'Serviços recorrentes no mês.' },
-  { id: 'SHOPPING', label: 'Compras', description: 'Compras avulsas no mês.' },
+  ...CATEGORIES.map((id) => ({
+    id,
+    label: id === 'INCOME' ? 'Entradas' : CATEGORY_LABELS[id],
+    description: CATEGORY_DESCRIPTIONS[id],
+  })),
 ];
 
-/** Every metric except the two aggregates — what the breakdown chart ranks. */
-export const CATEGORY_METRIC_IDS: readonly MetricId[] = METRICS.map((metric) => metric.id).filter(
-  (id) => id !== 'TOTAL_SPENT' && id !== 'INCOME',
+/** Every outgoing category — what "tudo que saiu" sums and the breakdown ranks. */
+const EXPENSE_CATEGORIES: readonly TransactionCategory[] = CATEGORIES.filter(
+  (category) => category !== 'INCOME',
 );
 
 export type MonthWindow = 3 | 4 | 5 | 6 | 12;
 
 export const MONTH_WINDOWS: readonly MonthWindow[] = [3, 4, 5, 6, 12];
 
-export type MonthPoint = {
+/** One month the backend has data for, labelled. */
+export type ChartMonth = {
   readonly monthsAgo: number;
+  /** The current month is incomplete by definition. */
+  readonly isPartial: boolean;
   /** "set" — the x-axis tick. */
   readonly shortLabel: string;
-  /** "setembro de 2026" — the tooltip heading and the table view. */
+  /** "setembro de 2026" — the tooltip heading. */
+  readonly longLabel: string;
+  readonly totals: Readonly<Record<TransactionCategory, number>>;
+};
+
+export type MonthPoint = {
+  readonly monthsAgo: number;
+  readonly isPartial: boolean;
+  readonly shortLabel: string;
   readonly longLabel: string;
   readonly valueInCents: number;
 };
 
 export type CategorySlice = {
-  readonly id: MetricId;
+  readonly id: TransactionCategory;
   readonly label: string;
   readonly totalInCents: number;
   /** 0–100, against the largest category in the same window. */
   readonly relativeShare: number;
 };
 
-function sumExpenses(month: MonthlyTotals): number {
-  return (
-    month.bets +
-    month.groceries +
-    month.dining +
-    month.transport +
-    month.housing +
-    month.health +
-    month.subscriptions +
-    month.shopping
-  );
-}
-
-function readMetric(month: MonthlyTotals, metric: MetricId): number {
-  switch (metric) {
-    case 'TOTAL_SPENT':
-      return sumExpenses(month);
-    case 'INCOME':
-      return month.income;
-    case 'BETS':
-      return month.bets;
-    case 'GROCERIES':
-      return month.groceries;
-    case 'DINING':
-      return month.dining;
-    case 'TRANSPORT':
-      return month.transport;
-    case 'HOUSING':
-      return month.housing;
-    case 'HEALTH':
-      return month.health;
-    case 'SUBSCRIPTIONS':
-      return month.subscriptions;
-    case 'SHOPPING':
-      return month.shopping;
-    default:
-      return assertNever(metric);
-  }
-}
-
-function toMonthDate(reference: Date, monthsAgo: number): Date {
-  /* Day 1 avoids the 31st-of-January problem when stepping back a month. */
-  return new Date(reference.getFullYear(), reference.getMonth() - monthsAgo, 1);
+function firstDayOf(monthKey: string): Date {
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, 1, 12));
 }
 
 /** Strips the trailing dot pt-BR puts on abbreviated months ("set." → "set"). */
@@ -128,32 +118,59 @@ function toShortMonthLabel(date: Date): string {
   return MONTH_FORMAT.format(date).replace('.', '');
 }
 
+/** Newest first, as the backend sends them. */
+export function toChartMonths(items: readonly MonthlyTotals[]): readonly ChartMonth[] {
+  return items.map((item) => {
+    const date = firstDayOf(item.monthKey);
+    return {
+      monthsAgo: item.monthsAgo,
+      isPartial: item.isPartial,
+      shortLabel: toShortMonthLabel(date),
+      longLabel: LONG_MONTH_FORMAT.format(date),
+      totals: item.totals,
+    };
+  });
+}
+
+function readMetric(month: ChartMonth, metric: MetricId): number {
+  if (metric !== 'TOTAL_SPENT') return month.totals[metric];
+  return EXPENSE_CATEGORIES.reduce((sum, category) => sum + month.totals[category], 0);
+}
+
+function inWindow(months: readonly ChartMonth[], window: MonthWindow): readonly ChartMonth[] {
+  return months.filter((month) => month.monthsAgo < window);
+}
+
+/** Oldest first, for the x-axis. Months the backend omitted stay omitted. */
 export function selectMonthlySeries(
+  months: readonly ChartMonth[],
   metric: MetricId,
   window: MonthWindow,
-  reference: Date,
 ): readonly MonthPoint[] {
-  return MONTHLY_HISTORY.filter((month) => month.monthsAgo < window)
-    .map((month) => {
-      const date = toMonthDate(reference, month.monthsAgo);
-      return {
-        monthsAgo: month.monthsAgo,
-        shortLabel: toShortMonthLabel(date),
-        longLabel: LONG_MONTH_FORMAT.format(date),
-        valueInCents: readMetric(month, metric),
-      };
-    })
+  return inWindow(months, window)
+    .map((month) => ({
+      monthsAgo: month.monthsAgo,
+      isPartial: month.isPartial,
+      shortLabel: month.shortLabel,
+      longLabel: month.longLabel,
+      valueInCents: readMetric(month, metric),
+    }))
     .toReversed();
 }
 
-export function selectCategoryBreakdown(window: MonthWindow): readonly CategorySlice[] {
-  const months = MONTHLY_HISTORY.filter((month) => month.monthsAgo < window);
+export function selectCategoryBreakdown(
+  months: readonly ChartMonth[],
+  window: MonthWindow,
+): readonly CategorySlice[] {
+  const windowMonths = inWindow(months, window);
 
-  const totals = CATEGORY_METRIC_IDS.map((id) => ({
+  const totals = EXPENSE_CATEGORIES.map((id) => ({
     id,
-    label: METRICS.find((metric) => metric.id === id)?.label ?? id,
-    totalInCents: months.reduce((sum, month) => sum + readMetric(month, id), 0),
-  })).toSorted((left, right) => right.totalInCents - left.totalInCents);
+    label: CATEGORY_LABELS[id],
+    totalInCents: windowMonths.reduce((sum, month) => sum + month.totals[id], 0),
+  }))
+    .filter((slice) => slice.totalInCents > 0 || slice.id === 'BETS')
+    .toSorted((left, right) => right.totalInCents - left.totalInCents);
 
   const largest = totals[0]?.totalInCents ?? 0;
 
@@ -167,17 +184,12 @@ export function sumSeries(points: readonly MonthPoint[]): number {
   return points.reduce((total, point) => total + point.valueInCents, 0);
 }
 
-export function toMonthlyAverage(points: readonly MonthPoint[]): number {
-  if (points.length === 0) return 0;
-  return Math.round(sumSeries(points) / points.length);
-}
-
 /**
- * Every month's betting total, newest first, regardless of the chosen window.
- *
- * The support offer must not appear and disappear as the reader changes the
- * window — whether someone is shown a support line cannot depend on a filter.
+ * Over whole months only. The open month is half a month, and averaging it in
+ * would understate every month around it. `null` when no whole month is shown.
  */
-export function selectAllBetTotalsNewestFirst(): readonly number[] {
-  return MONTHLY_HISTORY.map((month) => month.bets);
+export function toMonthlyAverage(points: readonly MonthPoint[]): number | null {
+  const whole = points.filter((point) => !point.isPartial);
+  if (whole.length === 0) return null;
+  return Math.round(sumSeries(whole) / whole.length);
 }

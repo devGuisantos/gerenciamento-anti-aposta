@@ -25,15 +25,15 @@ import { formatBRL } from '@shared/ui/money-text';
 
 import { SupportCard } from '../../_components/support-card';
 import { SPEND_LEVEL_CAPTIONS, SPEND_LEVEL_TEXT_CLASSES, toSpendLevel } from '../../_spend-level';
-import { toSupportSignal } from '../../_support-signal';
+import type { SupportSignal } from '../../_support-signal';
 import {
   METRICS,
   MONTH_WINDOWS,
-  selectAllBetTotalsNewestFirst,
   selectCategoryBreakdown,
   selectMonthlySeries,
   sumSeries,
   toMonthlyAverage,
+  type ChartMonth,
   type MetricId,
   type MonthWindow,
 } from '../_insights-view';
@@ -44,20 +44,21 @@ const DEFAULT_METRIC: MetricId = 'BETS';
 const DEFAULT_WINDOW: MonthWindow = 6;
 
 type InsightsDashboardProps = {
-  /** The reference month, resolved on the server so labels never drift. */
-  readonly referenceIso: string;
+  /** Newest first, labelled on the server. Only months the backend has data for. */
+  readonly months: readonly ChartMonth[];
+  /** `null` when the backend could not say: the card then stays away, never alarms. */
+  readonly supportSignal: SupportSignal | null;
 };
 
-export function InsightsDashboard({ referenceIso }: InsightsDashboardProps) {
+export function InsightsDashboard({ months, supportSignal }: InsightsDashboardProps) {
   const [metricId, setMetricId] = useState<MetricId>(DEFAULT_METRIC);
   const [window, setWindow] = useState<MonthWindow>(DEFAULT_WINDOW);
 
-  const reference = useMemo(() => new Date(referenceIso), [referenceIso]);
   const points = useMemo(
-    () => selectMonthlySeries(metricId, window, reference),
-    [metricId, window, reference],
+    () => selectMonthlySeries(months, metricId, window),
+    [months, metricId, window],
   );
-  const slices = useMemo(() => selectCategoryBreakdown(window), [window]);
+  const slices = useMemo(() => selectCategoryBreakdown(months, window), [months, window]);
 
   const metric = METRICS.find((candidate) => candidate.id === metricId) ?? METRICS[0];
   const isBanded = metricId === 'BETS';
@@ -65,7 +66,6 @@ export function InsightsDashboard({ referenceIso }: InsightsDashboardProps) {
   const average = toMonthlyAverage(points);
 
   const animate = useChartEntrance();
-  const supportSignal = useMemo(() => toSupportSignal(selectAllBetTotalsNewestFirst()), []);
 
   return (
     <div className="space-y-6">
@@ -74,10 +74,11 @@ export function InsightsDashboard({ referenceIso }: InsightsDashboardProps) {
         window={window}
         totalInCents={total}
         averageInCents={average}
+        monthCount={points.length}
         isBanded={isBanded}
       />
 
-      <SupportCard signal={supportSignal} />
+      {supportSignal === null ? null : <SupportCard signal={supportSignal} />}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <MetricPicker metricId={metricId} onMetricChange={setMetricId} />
@@ -92,7 +93,11 @@ export function InsightsDashboard({ referenceIso }: InsightsDashboardProps) {
           <CardDescription>{metric.description}</CardDescription>
         </CardHeader>
         <CardContent>
-          {animate === null ? (
+          {points.length === 0 ? (
+            <p className="py-12 text-center text-sm text-muted-foreground">
+              Nenhuma transação lida nos últimos {window} meses.
+            </p>
+          ) : animate === null ? (
             <Skeleton className="h-70 w-full" />
           ) : (
             <MonthlyBarChart
@@ -139,15 +144,19 @@ function SummaryHero({
   window,
   totalInCents,
   averageInCents,
+  monthCount,
   isBanded,
 }: {
   readonly metricLabel: string;
   readonly window: MonthWindow;
   readonly totalInCents: number;
-  readonly averageInCents: number;
+  readonly averageInCents: number | null;
+  readonly monthCount: number;
   readonly isBanded: boolean;
 }) {
-  const level = toSpendLevel(averageInCents);
+  /* Banded on the monthly average, as before; with no whole month yet, on the
+     open month itself, which is the only figure there is. */
+  const level = toSpendLevel(averageInCents ?? totalInCents);
   const caption = SPEND_LEVEL_CAPTIONS[level];
 
   return (
@@ -160,7 +169,9 @@ function SummaryHero({
             {metricLabel} · últimos {window} meses
           </span>
           {isBanded && caption ? (
-            <span className="text-xs text-muted-foreground">(média mensal {caption})</span>
+            <span className="text-xs text-muted-foreground">
+              ({averageInCents === null ? caption : `média mensal ${caption}`})
+            </span>
           ) : null}
         </div>
 
@@ -173,11 +184,32 @@ function SummaryHero({
           {formatBRL(totalInCents)}
         </p>
         <p className="text-sm text-muted-foreground">
-          Média de {formatBRL(averageInCents)} por mês.
+          {describeCoverage({ averageInCents, monthCount, window })}
         </p>
       </CardContent>
     </Card>
   );
+}
+
+/**
+ * Says what the figure covers. Months with no transactions read are left out
+ * by the backend rather than shown as zero, so a window can hold fewer months
+ * than it names — and the average is over whole months, never the open one.
+ */
+function describeCoverage({
+  averageInCents,
+  monthCount,
+  window,
+}: {
+  readonly averageInCents: number | null;
+  readonly monthCount: number;
+  readonly window: MonthWindow;
+}): string {
+  if (monthCount === 0) return `Nenhuma transação lida nos últimos ${window} meses.`;
+  const coverage =
+    monthCount < window ? ` Há dados de ${monthCount} dos ${window} meses.` : '';
+  if (averageInCents === null) return `Só o mês em andamento até agora.${coverage}`;
+  return `Média de ${formatBRL(averageInCents)} por mês fechado.${coverage}`;
 }
 
 function MetricPicker({

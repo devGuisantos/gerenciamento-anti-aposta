@@ -25,3 +25,10 @@ An `AwarenessNudge` carries:
   desperdiçou". No loss-aversion theatre, no alarm styling, no guilt.
 
 Emits `AwarenessNudgeGenerated`.
+
+## In this repository
+
+The reframing and the support offer are computed on **backend-anti-aposta**; the statement carries
+each yield figure and the rate it used. `infrastructure/support-offer-api.ts` reads
+`GET /awareness/support-offer` — whether to surface support resources, and what was counted. It takes
+no filter on purpose, and a failed read renders nothing. Server-only: types only from client code.

@@ -1,20 +1,14 @@
 /**
- * Presentation model for the statement screen.
+ * The fixture ledger as rows, for the screens that still read
+ * `_mock-ledger.ts` — the dashboard, Apostas and Conquistas. The statement
+ * itself reads the backend, through `_statement-view.ts`.
  *
- * Dates are resolved **once on the server** into labels, so the interactive list
- * never calls `new Date()` and cannot disagree with the server render. The list
- * only ever filters and groups rows it was handed.
+ * TODO(open-finance): retire with the fixture once those screens read the
+ * backend too. Dates resolve **once on the server** into labels.
  */
-import { assertNever } from '@shared/domain/assert-never';
-
-import {
-  CONNECTED_ACCOUNTS,
-  toAccountShortLabel,
-  type AccountId,
-  type ConnectedAccount,
-} from './_accounts';
+import { CONNECTED_ACCOUNTS, type ConnectedAccount } from './_accounts';
 import type { LedgerEntry } from './_ledger-entry';
-import { METHOD_LABELS } from './_mock-ledger';
+import { METHOD_LABELS } from './_statement-labels';
 
 const MILLISECONDS_PER_DAY = 86_400_000;
 
@@ -51,26 +45,6 @@ export type LedgerRow = Omit<LedgerEntry, 'occurredAt' | 'method' | 'accountId'>
   readonly dateLabel: string;
   readonly fullDateLabel: string;
 };
-
-export type DayGroup = {
-  readonly dayKey: string;
-  readonly dayLabel: string;
-  readonly netInCents: number;
-  readonly rows: readonly LedgerRow[];
-};
-
-/** All figures are non-negative magnitudes; the labels carry the direction. */
-export type LedgerTotals = {
-  readonly creditsInCents: number;
-  readonly debitsInCents: number;
-  readonly betSpendInCents: number;
-  readonly betCount: number;
-};
-
-export type LedgerFilter = 'ALL' | 'BETS' | 'CREDITS' | 'DEBITS';
-export type LedgerPeriod = 'LAST_30_DAYS' | 'LAST_90_DAYS' | 'ALL_TIME';
-/** `ALL` keeps every connected account; otherwise one account's entries only. */
-export type AccountFilter = 'ALL' | AccountId;
 
 function toStartOfDay(value: Date): Date {
   const start = new Date(value);
@@ -130,119 +104,9 @@ export function toLedgerRows(
   return entries.map((entry) => toRow(entry, reference));
 }
 
-function periodLengthInDays(period: LedgerPeriod): number {
-  switch (period) {
-    case 'LAST_30_DAYS':
-      return 30;
-    case 'LAST_90_DAYS':
-      return 90;
-    case 'ALL_TIME':
-      return Number.POSITIVE_INFINITY;
-    default:
-      return assertNever(period);
-  }
-}
-
-function matchesFilter(row: LedgerRow, filter: LedgerFilter): boolean {
-  switch (filter) {
-    case 'ALL':
-      return true;
-    case 'BETS':
-      return row.bet !== undefined;
-    case 'CREDITS':
-      return row.amountInCents > 0;
-    case 'DEBITS':
-      return row.amountInCents < 0;
-    default:
-      return assertNever(filter);
-  }
-}
-
-/** Accent- and case-insensitive: nobody types "Pão de Açúcar" with the diacritics. */
-function fold(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
-}
-
-function matchesQuery(row: LedgerRow, foldedQuery: string): boolean {
-  if (foldedQuery === '') return true;
-  const haystack = fold(
-    `${row.counterparty} ${row.category} ${row.account.institution} ${toAccountShortLabel(row.account)}`,
-  );
-  return haystack.includes(foldedQuery);
-}
-
-function matchesAccount(row: LedgerRow, account: AccountFilter): boolean {
-  return account === 'ALL' || row.account.id === account;
-}
-
-type SelectionCriteria = {
-  readonly rows: readonly LedgerRow[];
-  readonly period: LedgerPeriod;
-  readonly filter: LedgerFilter;
-  readonly account: AccountFilter;
-  readonly query: string;
-};
-
-export function selectRows({
-  rows,
-  period,
-  filter,
-  account,
-  query,
-}: SelectionCriteria): readonly LedgerRow[] {
-  const maximumDaysAgo = periodLengthInDays(period);
-  const foldedQuery = fold(query.trim());
-
-  return rows.filter(
-    (row) =>
-      row.daysAgo < maximumDaysAgo &&
-      matchesFilter(row, filter) &&
-      matchesAccount(row, account) &&
-      matchesQuery(row, foldedQuery),
-  );
-}
-
-/** Preserves the newest-first order it is given; it never re-sorts. */
-export function groupByDay(rows: readonly LedgerRow[]): readonly DayGroup[] {
-  const groups = new Map<string, LedgerRow[]>();
-
-  for (const row of rows) {
-    const existing = groups.get(row.dayKey);
-    if (existing) existing.push(row);
-    else groups.set(row.dayKey, [row]);
-  }
-
-  return [...groups].map(([dayKey, dayRows]) => ({
-    dayKey,
-    dayLabel: dayRows[0].dayLabel,
-    netInCents: dayRows.reduce((total, row) => total + row.amountInCents, 0),
-    rows: dayRows,
-  }));
-}
-
-export function summarise(rows: readonly LedgerRow[]): LedgerTotals {
-  const credits = rows.filter((row) => row.amountInCents > 0);
-  const debits = rows.filter((row) => row.amountInCents < 0);
-  const bets = rows.filter((row) => row.bet !== undefined);
-
-  return {
-    creditsInCents: sumMagnitudes(credits),
-    debitsInCents: sumMagnitudes(debits),
-    betSpendInCents: sumMagnitudes(bets),
-    betCount: bets.length,
-  };
-}
-
-function sumMagnitudes(rows: readonly LedgerRow[]): number {
-  return rows.reduce((total, row) => total + Math.abs(row.amountInCents), 0);
-}
-
 /**
- * The reframing shown beside a betting amount — the same arithmetic the
- * `awareness` module will own once `Reframing` exists.
+ * The reframing shown beside a fixture betting amount. The statement no longer
+ * uses it: there, `awareness` reframes on the backend and the figure arrives.
  */
 export function toYieldEquivalentInCents(spendInCents: number, annualRate: number): number {
   return Math.round(spendInCents * (1 + annualRate));

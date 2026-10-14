@@ -9,7 +9,6 @@ import { useIsHydrated } from '@/hooks/use-is-hydrated';
 import { formatBRL } from '@shared/ui/money-text';
 import { SupportContacts } from '@shared/ui/support-contacts';
 
-import { HIGH_BAND_FLOOR_IN_CENTS } from '../_spend-level';
 import type { SupportSignal } from '../_support-signal';
 
 const DISMISSED_KEY = 'anti-aposta:support-offer-dismissed';
@@ -84,7 +83,7 @@ export function SupportCard({ signal }: SupportCardProps) {
  */
 function describeObservation(signal: SupportSignal): string {
   const months = `${signal.sustainedMonths} meses seguidos`;
-  const floor = formatBRL(HIGH_BAND_FLOOR_IN_CENTS);
+  const floor = formatBRL(signal.thresholdInCents);
 
   return signal.isRising
     ? `em ${months}, o valor em apostas passou de ${floor} por mês e subiu a cada mês.`

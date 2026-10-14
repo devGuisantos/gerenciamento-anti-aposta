@@ -10,11 +10,12 @@
  * sustained pattern across whole months, never a single bad week, and it reports
  * only what it counted — it does not diagnose, and the copy must not either.
  *
- * TODO(awareness): this is the shape of a domain policy, not presentation. When
- * the module lands it belongs there as `SupportOffer`, with its own tests —
- * including the negative cases, which matter more than the positive ones here.
+ * The backend now decides this as `awareness.SupportOffer`, and
+ * `/transactions/insights` reads it from there. This copy remains only for
+ * `/achievements`, which still reads the fixture ledger — the shape is the
+ * same, so that screen switches by changing its source.
  */
-import { toSpendLevel } from './_spend-level';
+import { HIGH_BAND_FLOOR_IN_CENTS, toSpendLevel } from './_spend-level';
 
 /** Whole months in the high band before support is offered at all. */
 const SUSTAINED_MONTHS_REQUIRED = 3;
@@ -25,6 +26,8 @@ export type SupportSignal = {
   readonly sustainedMonths: number;
   /** Whether every one of those months was larger than the month before it. */
   readonly isRising: boolean;
+  /** The monthly figure counted as high, so the copy names the same number the rule used. */
+  readonly thresholdInCents: number;
 };
 
 function countSustainedHighMonths(betTotalsNewestFirst: readonly number[]): number {
@@ -49,5 +52,6 @@ export function toSupportSignal(betTotalsNewestFirst: readonly number[]): Suppor
     shouldOffer: sustainedMonths >= SUSTAINED_MONTHS_REQUIRED,
     sustainedMonths,
     isRising: sustainedMonths > 1 && isStrictlyRising(sustained),
+    thresholdInCents: HIGH_BAND_FLOOR_IN_CENTS,
   };
 }
