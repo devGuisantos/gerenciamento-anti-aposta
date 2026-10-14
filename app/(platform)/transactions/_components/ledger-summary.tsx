@@ -1,32 +1,32 @@
 import { ArrowDownLeft, ArrowUpRight, TrendingDown } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
+import type { LedgerTotals } from '@modules/open-finance';
 import { cn } from 'cn';
 import { formatBRL } from '@shared/ui/money-text';
 
-import { FIXED_INCOME_ANNUAL_RATE } from '../../dashboard/_mock-snapshot';
-import { toYieldEquivalentInCents, type LedgerTotals } from '../_ledger-view';
 import {
   SPEND_LEVEL_CAPTIONS,
   SPEND_LEVEL_TEXT_CLASSES,
   toSpendLevel,
 } from '../_spend-level';
 
-const ratePercent = (FIXED_INCOME_ANNUAL_RATE * 100).toFixed(1).replace('.', ',');
+const RATE_FORMAT = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
 
 type LedgerSummaryProps = {
+  /** The backend's figures for the **whole** filtered set, never for the loaded page. */
   readonly totals: LedgerTotals;
   readonly scopeLabel: string;
 };
 
 /**
  * The one hero figure on this screen, and it moves with the filters: what the
- * period on screen actually cost in bets. Entradas and saídas sit beside it at a
- * smaller size, which is the hierarchy a statement wants.
+ * slice on screen actually cost in bets, net of refunds. Entradas and saídas
+ * sit beside it at a smaller size, which is the hierarchy a statement wants.
  */
 export function LedgerSummary({ totals, scopeLabel }: LedgerSummaryProps) {
-  const yieldInCents = toYieldEquivalentInCents(totals.betSpendInCents, FIXED_INCOME_ANNUAL_RATE);
-  const level = toSpendLevel(totals.betSpendInCents);
+  const betSpendInCents = totals.betSpend.amountInCents;
+  const level = toSpendLevel(betSpendInCents);
   const levelClass = SPEND_LEVEL_TEXT_CLASSES[level];
   const levelCaption = SPEND_LEVEL_CAPTIONS[level];
 
@@ -46,13 +46,8 @@ export function LedgerSummary({ totals, scopeLabel }: LedgerSummaryProps) {
               <span className="text-xs text-muted-foreground">({levelCaption})</span>
             ) : null}
           </div>
-          <p
-            className={cn(
-              'font-heading text-5xl font-semibold tracking-tight',
-              levelClass,
-            )}
-          >
-            {formatBRL(totals.betSpendInCents)}
+          <p className={cn('font-heading text-5xl font-semibold tracking-tight', levelClass)}>
+            {formatBRL(betSpendInCents)}
           </p>
           {totals.betCount === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -60,9 +55,10 @@ export function LedgerSummary({ totals, scopeLabel }: LedgerSummaryProps) {
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              {toTransactionCount(totals.betCount)}. Em renda fixa a {ratePercent}% ao ano, esse
-              valor seria {formatBRL(yieldInCents)} em 12 meses — estimativa, não é garantia de
-              retorno.
+              {toTransactionCount(totals.betCount)}. Em renda fixa a{' '}
+              {RATE_FORMAT.format(totals.annualRatePercent)}% ao ano, esse valor seria{' '}
+              {formatBRL(totals.betYieldEquivalent.amountInCents)} em 12 meses — estimativa, não é
+              garantia de retorno.
             </p>
           )}
         </div>
@@ -71,9 +67,13 @@ export function LedgerSummary({ totals, scopeLabel }: LedgerSummaryProps) {
           <DirectionFigure
             icon={ArrowDownLeft}
             label="Entradas"
-            amountInCents={totals.creditsInCents}
+            amountInCents={totals.credits.amountInCents}
           />
-          <DirectionFigure icon={ArrowUpRight} label="Saídas" amountInCents={totals.debitsInCents} />
+          <DirectionFigure
+            icon={ArrowUpRight}
+            label="Saídas"
+            amountInCents={totals.debits.amountInCents}
+          />
         </div>
       </CardContent>
     </Card>

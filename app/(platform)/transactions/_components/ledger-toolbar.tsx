@@ -14,15 +14,20 @@ import {
 } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
-import { CONNECTED_ACCOUNT_LIST, toAccountFullLabel } from '../_accounts';
-import type { AccountFilter, LedgerFilter, LedgerPeriod } from '../_ledger-view';
+import type { ConnectedAccount, LedgerPeriod, LedgerType } from '@modules/open-finance';
+
+import { toAccountFullLabel } from '../_accounts';
+import { SEARCH_MAXIMUM_LENGTH } from '../_statement-params';
+
+/** `ALL` keeps every connected account; otherwise one account id. */
+export type AccountFilter = 'ALL' | string;
 
 const FILTER_OPTIONS = [
   { value: 'ALL', label: 'Tudo' },
   { value: 'BETS', label: 'Apostas' },
   { value: 'DEBITS', label: 'Saídas' },
   { value: 'CREDITS', label: 'Entradas' },
-] as const satisfies readonly { value: LedgerFilter; label: string }[];
+] as const satisfies readonly { value: LedgerType; label: string }[];
 
 export const PERIOD_OPTIONS = [
   { value: 'LAST_30_DAYS', label: 'Últimos 30 dias' },
@@ -30,13 +35,14 @@ export const PERIOD_OPTIONS = [
   { value: 'ALL_TIME', label: 'Todo o período' },
 ] as const satisfies readonly { value: LedgerPeriod; label: string }[];
 
-const ACCOUNT_OPTIONS: readonly { value: AccountFilter; label: string }[] = [
-  { value: 'ALL', label: 'Todas as contas' },
-  ...CONNECTED_ACCOUNT_LIST.map((account) => ({
-    value: account.id,
-    label: toAccountFullLabel(account),
-  })),
-];
+function toAccountOptions(
+  accounts: readonly ConnectedAccount[],
+): readonly { value: AccountFilter; label: string }[] {
+  return [
+    { value: 'ALL', label: 'Todas as contas' },
+    ...accounts.map((account) => ({ value: account.id, label: toAccountFullLabel(account) })),
+  ];
+}
 
 type Option<Value extends string> = { readonly value: Value; readonly label: string };
 
@@ -57,11 +63,12 @@ function labelFor<Value extends string>(
 
 type LedgerToolbarProps = {
   readonly query: string;
-  readonly filter: LedgerFilter;
+  readonly filter: LedgerType;
   readonly period: LedgerPeriod;
   readonly account: AccountFilter;
+  readonly accounts: readonly ConnectedAccount[];
   readonly onQueryChange: (query: string) => void;
-  readonly onFilterChange: (filter: LedgerFilter) => void;
+  readonly onFilterChange: (filter: LedgerType) => void;
   readonly onPeriodChange: (period: LedgerPeriod) => void;
   readonly onAccountChange: (account: AccountFilter) => void;
 };
@@ -71,11 +78,14 @@ export function LedgerToolbar({
   filter,
   period,
   account,
+  accounts,
   onQueryChange,
   onFilterChange,
   onPeriodChange,
   onAccountChange,
 }: LedgerToolbarProps) {
+  const accountOptions = toAccountOptions(accounts);
+
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div className="flex flex-1 items-center gap-2 md:max-w-sm">
@@ -107,17 +117,17 @@ export function LedgerToolbar({
           <Select
             value={account}
             onValueChange={(value) => {
-              const next = narrow(ACCOUNT_OPTIONS, value);
+              const next = narrow(accountOptions, value);
               if (next) onAccountChange(next);
             }}
           >
             <SelectTrigger className="h-9 w-full sm:w-56 md:h-8" aria-label="Conta">
               {/* Explicit children: Radix fills SelectValue only once its items
                   register on the client, which leaves the trigger blank in SSR. */}
-              <SelectValue>{labelFor(ACCOUNT_OPTIONS, account)}</SelectValue>
+              <SelectValue>{labelFor(accountOptions, account)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {ACCOUNT_OPTIONS.map((option) => (
+              {accountOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
@@ -172,6 +182,7 @@ function SearchField({
         onChange={(event) => onQueryChange(event.target.value)}
         placeholder="Buscar por nome, categoria ou conta"
         autoComplete="off"
+        maxLength={SEARCH_MAXIMUM_LENGTH}
         className="h-10 pl-9 md:h-9"
       />
       {query === '' ? null : (

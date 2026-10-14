@@ -25,6 +25,7 @@ import { assertNever } from '@shared/domain/assert-never';
 import { createConfettiBurst, type ConfettiBurst } from '@shared/ui/milestone-confetti';
 import { formatBRL } from '@shared/ui/money-text';
 
+import { describeArrivalsAction, type ArrivalLine } from '../_arrivals-action';
 import {
   BadgeAwardedDialog,
   type BadgeAwardedNotification,
@@ -34,8 +35,12 @@ import {
   parseNotification,
   TRANSACTIONS_INGESTED_TOAST_ID,
 } from './notification-wire';
+import { TransactionsArrivedToast } from './transactions-arrived-toast';
 
 const STREAM_URL = '/api/notifications/stream';
+
+/** Long enough to read three lines; the toast also closes on its own button. */
+const ARRIVAL_TOAST_DURATION_IN_MILLISECONDS = 10_000;
 
 /**
  * Subscribes to the SSE stream and renders whatever arrives. The stream is the
@@ -90,8 +95,8 @@ export function NotificationListener() {
           });
           break;
         case 'TRANSACTIONS_INGESTED':
-          announceTransactions(notification);
           router.refresh();
+          void announceTransactions(notification);
           break;
         default:
           assertNever(notification);
@@ -134,12 +139,18 @@ export function NotificationListener() {
 /**
  * One toast however the movements arrived. The "Sincronizar" button answers
  * with the same id, so pressing it does not stack its own toast on this one.
+ *
+ * The notification carries only a count, so the lines come from the statement,
+ * behind the session. If they cannot be read the toast still says how many
+ * arrived — a missing detail is never a reason to drop the announcement.
  */
-function announceTransactions(notification: TransactionsIngestedNotification) {
+async function announceTransactions(notification: TransactionsIngestedNotification) {
   const count = notification.ingestedCount;
+  const lines: readonly ArrivalLine[] = await describeArrivalsAction(count).catch(() => []);
 
-  toast(count === 1 ? '1 transação nova chegou do banco.' : `${count} transações novas chegaram do banco.`, {
+  toast.custom((id) => <TransactionsArrivedToast toastId={id} count={count} lines={lines} />, {
     id: TRANSACTIONS_INGESTED_TOAST_ID,
+    duration: ARRIVAL_TOAST_DURATION_IN_MILLISECONDS,
   });
 }
 

@@ -8,7 +8,10 @@
  * spec's `GET /accounts` returns `number` and `checkDigit` in full, so data
  * minimisation is our job: only the last four digits ever reach the app.
  *
- * TODO(open-finance): replace with `ConnectedAccount` as the module exposes it.
+ * The statement no longer reads this: it uses `ConnectedAccount` from
+ * `@modules/open-finance`. It stays for the fixture ledger the dashboard, Apostas
+ * and Conquistas still read, and retires with it. The label functions below are
+ * structural, so they serve both.
  */
 
 export const ACCOUNT_IDS = ['andorinha-checking', 'vela-credit'] as const;
@@ -47,16 +50,15 @@ export const CONNECTED_ACCOUNTS: Readonly<Record<AccountId, ConnectedAccount>> =
   },
 };
 
-export const CONNECTED_ACCOUNT_LIST: readonly ConnectedAccount[] = ACCOUNT_IDS.map(
-  (id) => CONNECTED_ACCOUNTS[id],
-);
+/** The fields a label needs — structural, so the backend's `ConnectedAccount` fits too. */
+type AccountNaming = Pick<ConnectedAccount, 'institution' | 'shortName' | 'product' | 'maskedNumber'>;
 
 /** For a transaction row, where the merchant name already owns the line. */
-export function toAccountShortLabel(account: ConnectedAccount): string {
+export function toAccountShortLabel(account: AccountNaming): string {
   return `${account.shortName} ${account.maskedNumber}`;
 }
 
 /** For the filter and the detail dialog, where there is room to be unambiguous. */
-export function toAccountFullLabel(account: ConnectedAccount): string {
+export function toAccountFullLabel(account: AccountNaming): string {
   return `${account.institution} · ${account.product} ${account.maskedNumber}`;
 }

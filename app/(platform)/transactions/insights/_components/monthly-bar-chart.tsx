@@ -134,7 +134,11 @@ function MonthTooltip({ active, payload, isBanded }: TooltipPayload) {
 
   return (
     <div className="rounded-lg border bg-popover px-3 py-2 text-popover-foreground shadow-md">
-      <p className="text-xs text-muted-foreground">{point.longLabel}</p>
+      <p className="text-xs text-muted-foreground">
+        {point.longLabel}
+        {/* Half a month is not a month: a low bar here is not a good month yet. */}
+        {point.isPartial ? ' · em andamento' : null}
+      </p>
       <p className="font-heading text-base font-semibold tabular-nums">
         {formatBRL(point.valueInCents)}
       </p>

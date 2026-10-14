@@ -28,3 +28,12 @@ precision.
 - Adding a policy means adding its tests in the same commit, including a negative case.
 
 Emits `BetTransactionDetected`.
+
+## In this repository
+
+The policies run on **backend-anti-aposta**; this module is a client of its API and holds no rule.
+`infrastructure/classification-override-api.ts` carries the person's correction:
+`overrideClassification` (`POST /transactions/{id}/classification-override`, `NOT_A_BET`) and
+`revertClassificationOverride` (`DELETE` on the same path). The override outranks the policy chain
+for that transaction until the same person undoes it. Server-only, like `identity`: a Client
+Component imports types from here, never values.

@@ -1,10 +1,13 @@
 import type { Metadata } from 'next';
 
+import { readSessionToken, requireSession } from '@modules/identity';
+import { listConnectedAccounts, listTransactions } from '@modules/open-finance';
+
 import { SectionTabs } from './_components/section-tabs';
+import { StatementUnavailable } from './_components/statement-unavailable';
 import { TransactionLedger } from './_components/transaction-ledger';
-import { toLedgerRows, type LedgerFilter, type LedgerPeriod } from './_ledger-view';
-import { buildLedgerEntries } from './_mock-ledger';
-import { requireSession } from '@modules/identity';
+import { readStatementFilters } from './_statement-params';
+import { toStatementRows } from './_statement-view';
 
 export const metadata: Metadata = {
   title: 'Transações',
@@ -12,39 +15,56 @@ export const metadata: Metadata = {
 };
 
 /**
- * Rendered per request: the list labels days as "Hoje" and "Ontem", and a static
- * render would freeze those at build time. It is also the right default here —
- * nothing derived from a user's financial data is ever cached.
+ * Rendered per request: it is one person's statement, and the list labels days
+ * as "Hoje" and "Ontem", which a static render would freeze at build time.
+ * Nothing derived from a user's financial data is ever cached.
  */
 export const dynamic = 'force-dynamic';
 
-/* Only the views another screen links into. An unknown value falls back to the
-   default rather than erroring: a bad query string is not worth a broken page. */
-const FILTERS: Readonly<Record<string, LedgerFilter>> = {
-  bets: 'BETS',
-  credits: 'CREDITS',
-  debits: 'DEBITS',
-};
+/**
+ * The accounts are read first so a stale `account` in the URL is dropped
+ * before it reaches the backend, where it would answer 404 for the whole page.
+ */
+async function StatementBody({
+  token,
+  searchParams,
+}: {
+  readonly token: string;
+  readonly searchParams: Awaited<PageProps<'/transactions'>['searchParams']>;
+}) {
+  const accounts = await listConnectedAccounts(token);
+  const knownAccounts = accounts.ok ? accounts.value : [];
+  const filters = readStatementFilters(
+    searchParams,
+    knownAccounts.map((account) => account.id),
+  );
+  const ledger = await listTransactions(token, { ...filters, cursor: null });
 
-const PERIODS: Readonly<Record<string, LedgerPeriod>> = {
-  '30d': 'LAST_30_DAYS',
-  '90d': 'LAST_90_DAYS',
-  all: 'ALL_TIME',
-};
+  if (!ledger.ok) {
+    return <StatementUnavailable reason={{ kind: 'FAILED', message: ledger.failure.message }} />;
+  }
+  if (ledger.value.syncStatus !== 'READY') {
+    return <StatementUnavailable reason={{ kind: ledger.value.syncStatus }} />;
+  }
 
-function readParam<Value>(
-  raw: string | readonly string[] | undefined,
-  allowed: Readonly<Record<string, Value>>,
-): Value | undefined {
-  const key = Array.isArray(raw) ? raw[0] : raw;
-  return typeof key === 'string' ? allowed[key] : undefined;
+  return (
+    <TransactionLedger
+      filters={filters}
+      accounts={knownAccounts}
+      totals={ledger.value.totals}
+      rows={toStatementRows(ledger.value.items, new Date())}
+      nextCursor={ledger.value.nextCursor}
+    />
+  );
 }
 
 export default async function TransactionsPage({ searchParams }: PageProps<'/transactions'>) {
   await requireSession();
-  const { filter, period } = await searchParams;
-  const reference = new Date();
-  const rows = toLedgerRows(buildLedgerEntries(reference), reference);
+  const token = await readSessionToken();
+
+  if (token === null) {
+    return null;
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -58,11 +78,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<'/tra
 
       <SectionTabs />
 
-      <TransactionLedger
-        rows={rows}
-        initialFilter={readParam(filter, FILTERS)}
-        initialPeriod={readParam(period, PERIODS)}
-      />
+      <StatementBody token={token} searchParams={await searchParams} />
     </div>
   );
 }

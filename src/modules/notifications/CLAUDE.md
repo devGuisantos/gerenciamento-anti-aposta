@@ -52,7 +52,7 @@ unnamed events).
 | `BADGE_AWARDED` | modal, `BadgeAwardedDialog` with confetti | a badge is rare; the celebration is the competence half of the SDT mapping |
 | `STREAK_BROKEN` | quiet toast | celebrating in a modal while reporting a setback in passing is the no-shaming rule as layout |
 | `GOAL_REACHED` | toast | good news that does not need to interrupt |
-| `TRANSACTIONS_INGESTED` | one toast + `router.refresh()` | the statement changed; Server Components re-read it in place |
+| `TRANSACTIONS_INGESTED` | one large toast (`TransactionsArrivedToast`, 10 s) + `router.refresh()` | the statement changed; Server Components re-read it in place. The payload is a count, so the toast reads the statement's newest lines behind the session (`_arrivals-action.ts`) and labels them "mais recentes" — never more than it knows |
 
 - **Never invert the modal/toast split.** A modal announcing a lost streak would make the product
   punish.

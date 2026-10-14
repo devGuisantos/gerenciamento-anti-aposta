@@ -15,6 +15,8 @@ infrastructure/
   open-finance-api.ts        # fetchCurrentConsent, requestConsent, completeAuthorisation,
                              # synchroniseConsent, revokeConsent, listConnectedAccounts,
                              # listRecentTransactions
+  ledger-api.ts              # listTransactions (statement page + whole-set totals, cursor),
+                             # summariseSpendByMonth (the charts)
   pending-consent-cookie.ts  # rememberPendingConsent, takePendingConsent
 index.ts
 ```

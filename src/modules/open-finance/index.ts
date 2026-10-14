@@ -15,4 +15,23 @@ export {
   type RequestedConsent,
   type Synchronisation,
 } from './infrastructure/open-finance-api';
+export {
+  LEDGER_PERIODS,
+  LEDGER_TYPES,
+  listTransactions,
+  summariseSpendByMonth,
+  type ClassificationOverride,
+  type Ledger,
+  type LedgerPeriod,
+  type LedgerQuery,
+  type LedgerTotals,
+  type LedgerTransaction,
+  type LedgerType,
+  type MonthlySummary,
+  type MonthlyTotals,
+  type PaymentMethod,
+  type SyncStatus,
+  type TransactionBet,
+  type TransactionCategory,
+} from './infrastructure/ledger-api';
 export { rememberPendingConsent, takePendingConsent } from './infrastructure/pending-consent-cookie';

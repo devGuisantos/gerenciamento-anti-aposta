@@ -100,31 +100,55 @@ being built:
 ## `/transactions` — the statement screen
 
 Modelled on the extrato/ledger screens of Nubank, Monzo and Revolut, minus the parts users
-complain about. Its parts live in `transactions/`:
+complain about. It reads **real backend data**: `GET /transactions` and `GET /accounts` through
+`@modules/open-finance`, the correction through `@modules/bet-detection`. Its parts live in
+`transactions/`:
 
-- `_ledger-entry.ts` is the row shape, mirroring `open-finance`'s `Transaction` plus
-  `bet-detection`'s `BetClassification`, so swapping the fixture out is a change of source only.
-- `_accounts.ts` is the connected-account registry. Entries carry an `accountId`, never an account
-  name — the label is presentation and belongs in one place.
-- `_ledger-view.ts` resolves dates into labels and holds the pure filter/group/total functions.
-- `_components/` holds the interactive leaves; `page.tsx` stays a Server Component.
+- `page.tsx` parses the URL, reads the backend and composes; it stays a Server Component.
+- `_statement-params.ts` maps the URL to `StatementFilters` and back. `filter`/`period` keep the
+  values other screens link with (`?filter=bets&period=all`); `account` and `q` are the rest.
+- `_statement-view.ts` turns the backend's rows into `StatementRow`s with every date a label.
+  `_statement-labels.ts` holds the Portuguese for the backend's enums (category, method).
+- `_actions.ts` holds the three Server Actions: the next page, the correction and its undo.
+- `_components/` holds the interactive leaves.
+- `_mock-ledger.ts`, `_ledger-entry.ts`, `_ledger-view.ts` and `_accounts.ts` are **no longer read
+  by this screen** — they stay only for the dashboard, `/bets` and `/achievements`, which still
+  read fixtures, and retire with them.
 
 Rules this screen establishes:
 
-- **Dates are resolved once, on the server.** Rows arrive carrying `dayLabel`, `timeLabel` and
-  `daysAgo`; the client filters and groups but never calls `new Date()`. That is also why the page
-  is `dynamic = 'force-dynamic'` — a static render would freeze "Hoje" at build time.
+- **The backend filters, totals and pages; the URL is the state.** A filter change is a
+  `router.replace`, and the server re-reads that slice. The hero is the backend's figure for the
+  **whole** matching set (net of refunds), never a sum of the loaded rows — a total over a page is
+  a figure that moves as you scroll. Search is debounced (350 ms) and folds accents on the backend
+  (Postgres `unaccent`), so "acucar" still finds "Pão de Açúcar".
+- **No consent is not zero.** `syncStatus` `NO_CONSENT` and `SYNCING` render `StatementUnavailable`
+  — a sentence and, for no consent, a link to `/accounts` — never an empty list under a R$ 0,00
+  hero, which would read as "you spent nothing on bets". The charts follow the same rule.
+- **Dates are resolved once, on the server**, in `America/Sao_Paulo` explicitly — the server may run
+  on UTC, where a bet at 22:30 reads as the next morning. Day grouping uses the backend's `dayKey`,
+  never one re-derived here. The page is `dynamic = 'force-dynamic'`: one person's data, and a
+  static render would freeze "Hoje".
 - **Grouped by day with a sticky header** (`top-14`, under the app header) showing the day's net.
+  The **last** day's net is withheld while more pages remain, because that day may continue.
   Amounts are right-aligned `tabular-nums`; the whole row is the tap target, not a chevron.
-- **Search and filters are the point.** The most-repeated complaint about Brazilian banking apps is
-  an extrato you can only scroll. Search folds accents and case — nobody types "Pão de Açúcar"
-  with the diacritics.
+- **"Carregar mais" follows the backend's opaque cursor**, through `loadNextPageAction`. The loaded
+  pages are keyed on the filters **and** the first page's cursor: a refresh that brings new rows
+  moves that cursor and drops the stale pages, rather than splicing two versions of the list.
+- **New movements slide in, and only new ones.** `useArrivals` remembers the ids a slice has shown;
+  rows that appear later **in the same slice** (a refresh after the bank's notice) slide and fade
+  in once. Nothing animates on first load or on a filter change — motion on every render would
+  teach people it means nothing. Position and opacity only, never colour (a coloured row would read
+  as a classification), and `motion-safe:` only.
 - **Progressive disclosure.** The row shows the badge and the matching policy; the detail dialog
-  carries the explanation, the confidence and the reframing. Do not crowd the row with it.
-- **The correction button is an affordance, not a feature.** `ReclassifyAction` in the transaction
-  detail says on click that it changes nothing, and its TODO names the command, the event, and
-  everything that has to recompute when it lands. Never let it fake a success state: somebody who
-  believes they corrected a number that is still wrong is worse off than with no button.
+  carries the explanation, the confidence and the reframing — the yield figure and the rate are the
+  backend's (`awareness`), never computed here. Do not crowd the row with it.
+- **The correction is real and reversible.** "Isto não é uma aposta" records an override on the
+  backend that outranks the classifier for that transaction; the hero, the charts, the streak, the
+  ceiling and the support offer all recompute there. No "tem certeza?": the toast carries
+  "Desfazer", and a corrected row shows "Corrigida por você" (outline, never red) with "Desfazer
+  correção" in its dialog. The open row takes the backend's answer at once and the screen
+  `refresh()`es. Never fake a success state: the UI changes only on the backend's answer.
 - **Uncertainty is visible.** A `LOW`-confidence match renders "Possível aposta" in an outline
   badge, never the flat "Aposta" — `bet-detection` reports the lowest confidence of the policies
   that agreed, and the UI must not launder that into a certainty.
@@ -132,21 +156,23 @@ Rules this screen establishes:
   a row stamps its account kind onto the category glyph (`EntryAvatar`) and names the account in
   the subtitle; the marker is `aria-hidden` because the text already carries it. Shape does not
   scale past a handful of accounts — if a third arrives, the words stay and the badge gives way.
-- **Account numbers are masked at the fixture**, never in the component. Only the last four digits
-  exist in the app, so there is nothing to leak into a log or an RSC payload.
-- **The fixtures agree per calendar month, not per rolling window.** This month's ledger entries
-  are authored; earlier months' bets are generated from `insights/_mock-monthly-history.ts`, and
-  each month sums to that month's figure. A "últimos 30 dias" total therefore reads higher than the
-  dashboard's "neste mês", because it reaches into the previous month — that is correct, and the
-  labels say which is which. The fixture also holds exactly the two accounts the snapshot counts.
+- **Account numbers are masked by the backend at ingestion**, never in the component. Only the
+  last four digits exist in the app, so there is nothing to leak into a log or an RSC payload. A
+  stale `account` id in the URL is dropped against the account list before it reaches the backend,
+  which would otherwise answer 404 for the whole page.
+- **Client components import types from the modules, never values.** The modules are server-only
+  (`next/headers`); one value import from a file the browser loads breaks the route at build.
+- **The remaining fixtures agree per calendar month, not per rolling window** — the rule the
+  dashboard, `/bets` and `/achievements` still depend on until they read the backend.
 - `SelectValue` needs **explicit children**. Radix fills it from the selected item, and items only
   register once the portal opens — leave it empty and the trigger renders blank on the server.
 
 ## `/accounts` — Contas conectadas, the Open Finance flow
 
-The first screen in this group that reads **real backend data** rather than a fixture: the consent,
-the shared accounts and the newest statement rows all come from backend-anti-aposta. The rest of the
-product still reads fixtures, which is why the header's "Dados simulados" stays.
+The first screen in this group that read **real backend data** rather than a fixture: the consent,
+the shared accounts and the newest statement rows all come from backend-anti-aposta. `/transactions`
+and `/transactions/insights` now do too; the dashboard, `/bets`, `/goals` and `/achievements` still
+read fixtures, which is why the header's "Dados simulados" stays.
 
 - **One card per state, decided by the backend's status.** `AUTHORISED` shows `ConsentCard`
   (accounts, last sync, "Sincronizar", "Revogar"); anything else shows `ConnectCard`, which says
@@ -408,8 +434,11 @@ Rules this screen establishes:
 The root `CLAUDE.md` requires that sustained betting surfaces support resources rather than more
 gamification. `SupportCard` on `/transactions/insights` is that path, and the rules it sets:
 
-- **The trigger is conservative on purpose.** `_support-signal.ts` needs three consecutive whole
-  months in the high band. A missed offer costs one screen; a false one tells somebody they may
+- **The trigger is conservative on purpose, and the backend owns it.** `awareness.SupportOffer`
+  (`GET /awareness/support-offer`, read by `/transactions/insights`) needs three consecutive whole
+  months in the high band, and sends the threshold the copy names. `_support-signal.ts` is the same
+  rule over the fixture, kept only until `/achievements` reads the backend. A failed read renders
+  no card — never an error in its place. A missed offer costs one screen; a false one tells somebody they may
   have a problem they do not have, from an app that has only seen their bank statement. New
   signals get their negative cases tested first.
 - **It reports what it counted and stops.** No diagnosis, no advice, no "você está gastando
@@ -435,6 +464,18 @@ gamification. `SupportCard` on `/transactions/insights` is that path, and the ru
 
 Transações is two pages behind one sidebar entry, switched by `SectionTabs`. A nav entry owns its
 sub-routes (`isCurrentSection` in `app-sidebar.tsx`), so the section stays highlighted.
+
+It reads `GET /transactions/monthly-summary` (twelve months, São Paulo calendar months, betting
+following the **classification** rather than the category, so a correction leaves the series).
+`_insights-view.ts` labels the months on the server and holds the reader's choices:
+
+- **A month with no data is absent, not zero.** The backend omits it, and so does the chart; the
+  hero says how many of the window's months have data. Twelve zero bars would read as "you have
+  never bet".
+- **`TOTAL_SPENT` is the one sum computed here** — every category except `INCOME`. The backend
+  sends only the parts, so a total it sent could never disagree with them.
+- **The open month is half a month.** It is a bar, marked "em andamento" in the tooltip, but the
+  average is over **whole** months only; with none yet, the hero says so instead of averaging.
 
 Charts are Recharts via the shadcn `chart` primitive. The rules that produced this screen:
 

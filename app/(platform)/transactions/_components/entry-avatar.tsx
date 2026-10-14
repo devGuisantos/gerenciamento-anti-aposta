@@ -1,17 +1,19 @@
 import { CreditCard, Landmark } from 'lucide-react';
 
-import type { AccountKind, ConnectedAccount } from '../_accounts';
+import type { ConnectedAccount, TransactionCategory } from '@modules/open-finance';
+
 import { CategoryIcon } from './category-icon';
 
 /** `Record<AccountKind, …>` keeps this exhaustive: a new kind fails to compile. */
-const ACCOUNT_ICONS: Readonly<Record<AccountKind, typeof Landmark>> = {
+const ACCOUNT_ICONS: Readonly<Record<ConnectedAccount['kind'], typeof Landmark>> = {
   CHECKING: Landmark,
   CREDIT_CARD: CreditCard,
 };
 
 type EntryAvatarProps = {
-  readonly category: string;
-  readonly account: ConnectedAccount;
+  readonly category: TransactionCategory;
+  /** `null` when the row's account is no longer shared; the glyph then stands alone. */
+  readonly account: ConnectedAccount | null;
 };
 
 /**
@@ -24,14 +26,16 @@ type EntryAvatarProps = {
  * subtitle still names the account in words and this marker stays `aria-hidden`.
  */
 export function EntryAvatar({ category, account }: EntryAvatarProps) {
-  const AccountIcon = ACCOUNT_ICONS[account.kind];
+  const AccountIcon = account === null ? null : ACCOUNT_ICONS[account.kind];
 
   return (
     <span aria-hidden className="relative shrink-0">
       <CategoryIcon category={category} />
-      <span className="absolute -right-0.5 -bottom-0.5 flex size-4 items-center justify-center rounded-full bg-foreground text-background ring-2 ring-card">
-        <AccountIcon className="size-2.5" />
-      </span>
+      {AccountIcon === null ? null : (
+        <span className="absolute -right-0.5 -bottom-0.5 flex size-4 items-center justify-center rounded-full bg-foreground text-background ring-2 ring-card">
+          <AccountIcon className="size-2.5" />
+        </span>
+      )}
     </span>
   );
 }

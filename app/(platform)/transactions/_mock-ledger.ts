@@ -18,7 +18,7 @@
  * Entries are authored as offsets from a reference day rather than as absolute
  * dates so that "Hoje" and "Ontem" stay true whenever the demo is opened.
  */
-import type { LedgerEntry, PaymentMethod } from './_ledger-entry';
+import type { LedgerEntry } from './_ledger-entry';
 import { MONTHLY_HISTORY } from './insights/_mock-monthly-history';
 
 type LedgerEntryDraft = Omit<LedgerEntry, 'id' | 'occurredAt'> & {
@@ -392,15 +392,6 @@ const DRAFTS: readonly LedgerEntryDraft[] = [
     status: 'SETTLED',
   },
 ];
-
-export const METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = {
-  PIX: 'Pix',
-  CREDIT_CARD: 'Cartão de crédito',
-  DEBIT_CARD: 'Cartão de débito',
-  DIRECT_DEBIT: 'Débito automático',
-  TRANSFER: 'Transferência',
-  BOLETO: 'Boleto',
-};
 
 function toOccurredAt(reference: Date, draft: LedgerEntryDraft): string {
   const day = new Date(reference.getTime() - draft.daysAgo * MILLISECONDS_PER_DAY);
