@@ -32,6 +32,8 @@ const FILTER_OPTIONS = [
 export const PERIOD_OPTIONS = [
   { value: 'LAST_30_DAYS', label: 'Últimos 30 dias' },
   { value: 'LAST_90_DAYS', label: 'Últimos 90 dias' },
+  { value: 'LAST_180_DAYS', label: 'Últimos 180 dias' },
+  { value: 'LAST_360_DAYS', label: 'Últimos 360 dias' },
   { value: 'ALL_TIME', label: 'Todo o período' },
 ] as const satisfies readonly { value: LedgerPeriod; label: string }[];
 

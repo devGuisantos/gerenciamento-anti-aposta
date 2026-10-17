@@ -26,9 +26,13 @@ function isSafeBackendUrl(value: string): boolean {
  * file from a Client Component would be a bug.
  */
 const environmentSchema = z.object({
-  BACKEND_API_URL: z.url().refine(isSafeBackendUrl, {
-    message: 'BACKEND_API_URL must use https in production, unless it is on this machine.',
-  }),
+  BACKEND_API_URL: z
+    .url()
+    .refine(isSafeBackendUrl, {
+      message: 'BACKEND_API_URL must use https in production, unless it is on this machine.',
+    })
+    // Paths are appended as `/api/...`; a trailing slash would double it.
+    .transform((value) => value.replace(/\/+$/, '')),
 });
 
 export const env = environmentSchema.parse({

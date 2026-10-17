@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowUpRight, ChevronRight } from 'lucide-react';
 
 import { useEntrance } from '@/hooks/use-entrance';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -22,10 +24,10 @@ import {
   DETECTION_LABELS,
   toBetBadgeLabel,
 } from '../../transactions/_detection';
-import type { BookmakerEntry, BookmakerSummary } from '../_bets-view';
+import type { BookmakerDetectionView, BookmakerView } from '../_bets-view';
 
 type BookmakerRankingProps = {
-  readonly bookmakers: readonly BookmakerSummary[];
+  readonly bookmakers: readonly BookmakerView[];
 };
 
 /**
@@ -37,14 +39,14 @@ type BookmakerRankingProps = {
  * colour per bookmaker would imply these are brands worth telling apart.
  */
 export function BookmakerRanking({ bookmakers }: BookmakerRankingProps) {
-  const [selected, setSelected] = useState<BookmakerSummary | null>(null);
+  const [selected, setSelected] = useState<BookmakerView | null>(null);
   const hasEntered = useEntrance();
 
   return (
     <>
       <ul>
         {bookmakers.map((bookmaker, index) => (
-          <li key={bookmaker.name}>
+          <li key={bookmaker.id}>
             {index > 0 ? <Separator /> : null}
             <button
               type="button"
@@ -76,7 +78,7 @@ export function BookmakerRanking({ bookmakers }: BookmakerRankingProps) {
 
               <p className="text-xs text-muted-foreground">
                 {describeCount(bookmaker.transactionCount)} · identificada por{' '}
-                {DETECTION_LABELS[bookmaker.matchedBy]}
+                {describeReasons(bookmaker.detections)}
               </p>
             </button>
           </li>
@@ -96,7 +98,12 @@ function describeCount(count: number): string {
   return count === 1 ? '1 transação' : `${count} transações`;
 }
 
-function BookmakerDetail({ bookmaker }: { readonly bookmaker: BookmakerSummary }) {
+/** Every policy that matched, so a house caught once by keyword never reads as all-MCC. */
+function describeReasons(detections: readonly BookmakerDetectionView[]): string {
+  return detections.map((detection) => DETECTION_LABELS[detection.reason]).join(' e ');
+}
+
+function BookmakerDetail({ bookmaker }: { readonly bookmaker: BookmakerView }) {
   return (
     <>
       <DialogHeader>
@@ -115,7 +122,7 @@ function BookmakerDetail({ bookmaker }: { readonly bookmaker: BookmakerSummary }
 
       <Separator />
 
-      <EntryList entries={bookmaker.entries} />
+      <DetectionList detections={bookmaker.detections} />
 
       <Separator />
 
@@ -126,13 +133,20 @@ function BookmakerDetail({ bookmaker }: { readonly bookmaker: BookmakerSummary }
           </Badge>
           <span className="text-xs text-muted-foreground">
             {CONFIDENCE_LABELS[bookmaker.lowestConfidence]} ·{' '}
-            {DETECTION_LABELS[bookmaker.matchedBy]}
+            {DETECTION_LABELS[bookmaker.weakestReason]}
           </span>
         </div>
         <p className="text-sm text-muted-foreground">
-          {DETECTION_EXPLANATIONS[bookmaker.matchedBy]}
+          {DETECTION_EXPLANATIONS[bookmaker.weakestReason]}
         </p>
       </div>
+
+      <Button asChild variant="outline" size="sm" className="h-9 w-full">
+        <Link href={bookmaker.statementHref}>
+          Ver as transações no extrato
+          <ArrowUpRight />
+        </Link>
+      </Button>
     </>
   );
 }
@@ -147,32 +161,21 @@ function Field({ label, value }: { readonly label: string; readonly value: strin
 }
 
 /**
- * The bookmaker's own statement. Clicking a row of a ranking and being told only
- * a total is a dead end — the transactions behind the number are the point, and
- * they are already in hand.
+ * How this house's bets were caught, policy by policy. The rows themselves are
+ * the statement's to show — it pages, and a dialog holding a whole history
+ * would not — so the button below opens exactly this house and this window.
  */
-function EntryList({ entries }: { readonly entries: readonly BookmakerEntry[] }) {
+function DetectionList({ detections }: { readonly detections: readonly BookmakerDetectionView[] }) {
   return (
-    <div className="space-y-2">
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {entries.length === 1 ? 'A transação' : `As ${entries.length} transações`}
-      </p>
-
-      {/* Capped so a long history scrolls inside the dialog instead of pushing its
-          buttons off screen on a phone. */}
-      <ul className="-mx-1 max-h-56 space-y-1 overflow-y-auto px-1">
-        {entries.map((entry) => (
-          <li key={entry.id} className="flex items-baseline justify-between gap-4 text-sm">
-            <span className="min-w-0">
-              <span className="truncate">{entry.dateLabel}</span>{' '}
-              <span className="text-xs text-muted-foreground">às {entry.timeLabel}</span>
-            </span>
-            <span className="shrink-0 font-medium tabular-nums text-destructive">
-              {formatBRL(entry.amountInCents)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <ul className="space-y-1">
+      {detections.map((detection) => (
+        <li key={detection.reason} className="flex items-baseline justify-between gap-4 text-sm">
+          <span>{DETECTION_LABELS[detection.reason]}</span>
+          <span className="shrink-0 tabular-nums text-muted-foreground">
+            {describeCount(detection.count)}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }

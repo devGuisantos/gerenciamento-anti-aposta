@@ -1,52 +1,82 @@
 /**
- * Presentation model for the Apostas screen.
+ * Presentation model for the Apostas screen, built from `GET /bets/summary`.
  *
- * It reads the **same ledger entries the statement screen reads**, so the two can
- * never disagree about how much went to betting. Nothing here re-classifies
- * anything: `bet-detection` decides what a bet is, and this only groups what it
- * already decided.
- *
- * TODO(bet-detection): `BookmakerSummary` is the `Bookmaker` aggregate seen from
- * outside. When the module lands it exposes this, keyed by CNPJ rather than by
- * the counterparty string — two entries spelled differently are one bookmaker,
- * and only the registry knows that.
+ * Nothing here decides a figure. The grouping by house, the net total, the
+ * counts, the tallies, the hour bands and the reframing all arrive computed by
+ * `bet-detection` — and `cost.total` is the statement's `betSpend` for the same
+ * window, so the two screens cannot disagree. What this file adds is words and
+ * bar widths: dates turned into labels **once, on the server**, in São Paulo.
  */
-import type { DetectionConfidence, DetectionReason } from '../transactions/_ledger-entry';
-import type { LedgerRow } from '../transactions/_ledger-view';
+import type {
+  BettingSummary,
+  BetWindowInDays,
+  BookmakerSummary,
+  DetectionTally,
+  HourBucket,
+} from '@modules/bet-detection';
+import type { LedgerPeriod } from '@modules/open-finance';
 
-/** One row of a bookmaker's own statement, flattened for the detail dialog. */
-export type BookmakerEntry = {
-  readonly id: string;
-  readonly dateLabel: string;
-  readonly timeLabel: string;
-  readonly amountInCents: number;
-  readonly matchedBy: DetectionReason;
-  readonly confidence: DetectionConfidence;
+import type { DetectionConfidence, DetectionReason } from '../transactions/_ledger-entry';
+import { DEFAULT_FILTERS, toStatementHref } from '../transactions/_statement-params';
+
+const TIME_ZONE = 'America/Sao_Paulo';
+const HOURS_PER_BUCKET = 3;
+const HOURS_PER_DAY = 24;
+
+const FULL_DATE_FORMAT = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: TIME_ZONE,
+  day: '2-digit',
+  month: 'long',
+  year: 'numeric',
+});
+
+const SHORT_DATE_FORMAT = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: TIME_ZONE,
+  day: '2-digit',
+  month: 'short',
+});
+
+/** The statement's period for the same window, so "Ver no extrato" opens this exact slice. */
+const LEDGER_PERIOD_FOR_WINDOW: Readonly<Record<BetWindowInDays, LedgerPeriod>> = {
+  30: 'LAST_30_DAYS',
+  90: 'LAST_90_DAYS',
+  180: 'LAST_180_DAYS',
+  360: 'LAST_360_DAYS',
 };
 
-export type BookmakerSummary = {
+export type BookmakerDetectionView = {
+  readonly reason: DetectionReason;
+  readonly count: number;
+};
+
+export type BookmakerView = {
+  readonly id: string;
   readonly name: string;
   readonly transactionCount: number;
   readonly totalInCents: number;
   /** 0–100 against the largest bookmaker, for the bar width. */
   readonly relativeShare: number;
-  /** The policy that matched most of this bookmaker's entries. */
-  readonly matchedBy: DetectionReason;
-  /** The weakest match among them — the honest confidence to show. */
+  /**
+   * The weakest confidence among the house's bets, with the reason of a bet
+   * that actually has it — never one policy's reason beside another's confidence.
+   */
+  readonly weakestReason: DetectionReason;
   readonly lowestConfidence: DetectionConfidence;
+  /** Every policy that matched, most frequent first. */
+  readonly detections: readonly BookmakerDetectionView[];
   readonly firstSeenLabel: string;
   readonly lastSeenLabel: string;
-  /** Newest first, so the dialog reads like the statement it came from. */
-  readonly entries: readonly BookmakerEntry[];
+  /** The house's own rows in the statement, over the same window. */
+  readonly statementHref: string;
 };
 
-export type DetectionTally = {
+export type DetectionTallyView = {
   readonly reason: DetectionReason;
   readonly count: number;
   readonly share: number;
 };
 
-export type HourBucket = {
+export type HourBucketView = {
   readonly label: string;
   readonly startHour: number;
   readonly count: number;
@@ -54,92 +84,97 @@ export type HourBucket = {
   readonly relativeShare: number;
 };
 
-export type BetCostSummary = {
+export type IncomeShare = {
+  readonly incomeInCents: number;
+  /** Percentage of everything that came in, rounded. May exceed 100. */
+  readonly percentage: number;
+};
+
+export type BetCostView = {
+  /** Net of refunds. */
   readonly totalInCents: number;
   readonly transactionCount: number;
   readonly bookmakerCount: number;
-  readonly sinceLabel: string;
+  readonly sinceLabel: string | null;
+  readonly refundTotalInCents: number;
+  readonly refundCount: number;
+  readonly yieldEquivalentInCents: number;
+  /** "11,4" — the backend's rate, worded for the copy beside the figure. */
+  readonly ratePercentLabel: string;
+  readonly incomeShare: IncomeShare | null;
+  readonly statementHref: string;
 };
 
-const CONFIDENCE_ORDER: readonly DetectionConfidence[] = ['LOW', 'MEDIUM', 'HIGH'];
-const HOURS_PER_BUCKET = 3;
-
-export function selectBetRows(rows: readonly LedgerRow[]): readonly LedgerRow[] {
-  return rows.filter((row) => row.bet !== undefined);
+export function toStatementHrefForWindow(
+  days: BetWindowInDays,
+  bookmakerId: string | null,
+): string {
+  return toStatementHref({
+    ...DEFAULT_FILTERS,
+    type: 'BETS',
+    period: LEDGER_PERIOD_FOR_WINDOW[days],
+    bookmakerId,
+  });
 }
 
-function toAmount(row: LedgerRow): number {
-  return Math.abs(row.amountInCents);
+function toPercentLabel(percent: number): string {
+  return percent.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 }
 
-function weakestConfidence(rows: readonly LedgerRow[]): DetectionConfidence {
-  return rows.reduce<DetectionConfidence>((weakest, row) => {
-    const confidence = row.bet?.confidence ?? 'HIGH';
-    return CONFIDENCE_ORDER.indexOf(confidence) < CONFIDENCE_ORDER.indexOf(weakest)
-      ? confidence
-      : weakest;
-  }, 'HIGH');
+export function toBetCostView(summary: BettingSummary, days: BetWindowInDays): BetCostView {
+  const { cost, incomeShare } = summary;
+
+  return {
+    totalInCents: cost.total.amountInCents,
+    transactionCount: cost.transactionCount,
+    bookmakerCount: cost.bookmakerCount,
+    sinceLabel: cost.firstBetAt === null ? null : FULL_DATE_FORMAT.format(new Date(cost.firstBetAt)),
+    refundTotalInCents: cost.refunds.total.amountInCents,
+    refundCount: cost.refunds.count,
+    yieldEquivalentInCents: summary.yield.betYieldEquivalent.amountInCents,
+    ratePercentLabel: toPercentLabel(summary.yield.annualRatePercent),
+    incomeShare:
+      incomeShare === null
+        ? null
+        : { incomeInCents: incomeShare.income.amountInCents, percentage: incomeShare.percentage },
+    statementHref: toStatementHrefForWindow(days, null),
+  };
 }
 
-function dominantReason(rows: readonly LedgerRow[]): DetectionReason {
-  const counts = new Map<DetectionReason, number>();
-  for (const row of rows) {
-    if (!row.bet) continue;
-    counts.set(row.bet.matchedBy, (counts.get(row.bet.matchedBy) ?? 0) + 1);
-  }
-  return [...counts].sort((left, right) => right[1] - left[1])[0][0];
-}
+/** The backend ranks largest first; the order is kept as it arrives. */
+export function toBookmakerViews(
+  bookmakers: readonly BookmakerSummary[],
+  days: BetWindowInDays,
+): readonly BookmakerView[] {
+  const largest = Math.max(0, ...bookmakers.map((bookmaker) => bookmaker.total.amountInCents));
 
-/** Rows arrive newest first, so the oldest entry is the last one. */
-export function selectBookmakers(betRows: readonly LedgerRow[]): readonly BookmakerSummary[] {
-  const grouped = new Map<string, LedgerRow[]>();
-  for (const row of betRows) {
-    const existing = grouped.get(row.counterparty);
-    if (existing) existing.push(row);
-    else grouped.set(row.counterparty, [row]);
-  }
-
-  const summaries = [...grouped].map(([name, rows]) => ({
-    name,
-    transactionCount: rows.length,
-    totalInCents: rows.reduce((total, row) => total + toAmount(row), 0),
-    matchedBy: dominantReason(rows),
-    lowestConfidence: weakestConfidence(rows),
-    entries: rows.map((row) => ({
-      id: row.id,
-      dateLabel: row.dateLabel,
-      timeLabel: row.timeLabel,
-      amountInCents: row.amountInCents,
-      matchedBy: row.bet?.matchedBy ?? 'GAMBLING_MCC',
-      confidence: row.bet?.confidence ?? 'HIGH',
-    })),
-    firstSeenLabel: rows.at(-1)?.fullDateLabel ?? '',
-    lastSeenLabel: rows[0].fullDateLabel,
-  }));
-
-  const ranked = summaries.toSorted((left, right) => right.totalInCents - left.totalInCents);
-  const largest = ranked[0]?.totalInCents ?? 0;
-
-  return ranked.map((summary) => ({
-    ...summary,
-    relativeShare: largest === 0 ? 0 : Math.round((summary.totalInCents / largest) * 100),
+  return bookmakers.map((bookmaker) => ({
+    id: bookmaker.bookmakerId,
+    name: bookmaker.name,
+    transactionCount: bookmaker.transactionCount,
+    totalInCents: bookmaker.total.amountInCents,
+    relativeShare: toShare(bookmaker.total.amountInCents, largest),
+    weakestReason: bookmaker.weakest.matchedBy,
+    lowestConfidence: bookmaker.weakest.confidence,
+    detections: bookmaker.detections
+      .map((detection) => ({ reason: detection.matchedBy, count: detection.count }))
+      .toSorted((left, right) => right.count - left.count),
+    firstSeenLabel: SHORT_DATE_FORMAT.format(new Date(bookmaker.firstSeenAt)),
+    lastSeenLabel: SHORT_DATE_FORMAT.format(new Date(bookmaker.lastSeenAt)),
+    statementHref: toStatementHrefForWindow(days, bookmaker.bookmakerId),
   }));
 }
 
-export function tallyDetections(betRows: readonly LedgerRow[]): readonly DetectionTally[] {
-  const counts = new Map<DetectionReason, number>();
-  for (const row of betRows) {
-    if (!row.bet) continue;
-    counts.set(row.bet.matchedBy, (counts.get(row.bet.matchedBy) ?? 0) + 1);
-  }
-
-  return [...counts]
-    .map(([reason, count]) => ({
-      reason,
-      count,
-      share: betRows.length === 0 ? 0 : Math.round((count / betRows.length) * 100),
-    }))
+export function toDetectionTallyViews(
+  tallies: readonly DetectionTally[],
+): readonly DetectionTallyView[] {
+  return tallies
+    .map((tally) => ({ reason: tally.matchedBy, count: tally.count, share: tally.sharePercent }))
     .toSorted((left, right) => right.count - left.count);
+}
+
+function toShare(value: number, largest: number): number {
+  return largest === 0 ? 0 : Math.round((value / largest) * 100);
 }
 
 function toTwoDigits(hour: number): string {
@@ -147,73 +182,32 @@ function toTwoDigits(hour: number): string {
 }
 
 function toBucketLabel(startHour: number): string {
-  const end = (startHour + HOURS_PER_BUCKET) % 24;
+  const end = (startHour + HOURS_PER_BUCKET) % HOURS_PER_DAY;
   return `${toTwoDigits(startHour)}h–${toTwoDigits(end)}h`;
 }
 
-/** Eight three-hour bands: enough resolution to show a cluster, few enough to read on a phone. */
-export function summariseHours(betRows: readonly LedgerRow[]): readonly HourBucket[] {
-  const counts = new Array<number>(24 / HOURS_PER_BUCKET).fill(0);
-  for (const row of betRows) {
-    counts[Math.floor(row.hourOfDay / HOURS_PER_BUCKET)] += 1;
-  }
+/** Eight three-hour bands, as the backend counted them in São Paulo time. */
+export function toHourBucketViews(buckets: readonly HourBucket[]): readonly HourBucketView[] {
+  const busiest = Math.max(0, ...buckets.map((bucket) => bucket.count));
 
-  const busiest = Math.max(...counts, 0);
-
-  return counts.map((count, index) => ({
-    label: toBucketLabel(index * HOURS_PER_BUCKET),
-    startHour: index * HOURS_PER_BUCKET,
-    count,
-    relativeShare: busiest === 0 ? 0 : Math.round((count / busiest) * 100),
-  }));
+  return buckets
+    .toSorted((left, right) => left.startHour - right.startHour)
+    .map((bucket) => ({
+      label: toBucketLabel(bucket.startHour),
+      startHour: bucket.startHour,
+      count: bucket.count,
+      relativeShare: toShare(bucket.count, busiest),
+    }));
 }
 
 /** The single busiest band, for the sentence that says what the histogram shows. */
-export function describeBusiestBand(buckets: readonly HourBucket[], total: number): string | null {
+export function describeBusiestBand(
+  buckets: readonly HourBucketView[],
+  total: number,
+): string | null {
   const busiest = buckets.toSorted((left, right) => right.count - left.count)[0];
   if (!busiest || busiest.count === 0 || total === 0) return null;
 
   const share = Math.round((busiest.count / total) * 100);
   return `${busiest.count} das ${total} apostas aconteceram entre ${busiest.label.replace('–', ' e ')} — ${share}% delas.`;
-}
-
-export function summariseBetCost(betRows: readonly LedgerRow[]): BetCostSummary {
-  const names = new Set(betRows.map((row) => row.counterparty));
-  const oldest = betRows.at(-1);
-
-  return {
-    totalInCents: betRows.reduce((total, row) => total + toAmount(row), 0),
-    transactionCount: betRows.length,
-    bookmakerCount: names.size,
-    sinceLabel: oldest?.dateLabel ?? '',
-  };
-}
-
-export type IncomeShare = {
-  readonly incomeInCents: number;
-  /** Percentage of everything that came in, rounded. */
-  readonly percentage: number;
-};
-
-/**
- * Betting spend against income over the same window.
- *
- * Both sides come from the ledger rather than the monthly history, so they cover
- * the same days: a share computed from two different periods would be a made-up
- * number wearing a percent sign.
- */
-export function summariseIncomeShare(
-  rows: readonly LedgerRow[],
-  betTotalInCents: number,
-): IncomeShare | null {
-  const incomeInCents = rows
-    .filter((row) => row.amountInCents > 0)
-    .reduce((total, row) => total + row.amountInCents, 0);
-
-  if (incomeInCents === 0) return null;
-
-  return {
-    incomeInCents,
-    percentage: Math.round((betTotalInCents / incomeInCents) * 100),
-  };
 }

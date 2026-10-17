@@ -106,13 +106,15 @@ complain about. It reads **real backend data**: `GET /transactions` and `GET /ac
 
 - `page.tsx` parses the URL, reads the backend and composes; it stays a Server Component.
 - `_statement-params.ts` maps the URL to `StatementFilters` and back. `filter`/`period` keep the
-  values other screens link with (`?filter=bets&period=all`); `account` and `q` are the rest.
+  values other screens link with (`?filter=bets&period=all`; `180d`/`360d` exist for `/bets`);
+  `account`, `bookmaker` and `q` are the rest. `bookmaker` is opaque and never rendered — the hero's
+  scope says "uma casa de apostas", and an id the reader's history lacks is the backend's 404.
 - `_statement-view.ts` turns the backend's rows into `StatementRow`s with every date a label.
   `_statement-labels.ts` holds the Portuguese for the backend's enums (category, method).
 - `_actions.ts` holds the three Server Actions: the next page, the correction and its undo.
 - `_components/` holds the interactive leaves.
 - `_mock-ledger.ts`, `_ledger-entry.ts`, `_ledger-view.ts` and `_accounts.ts` are **no longer read
-  by this screen** — they stay only for the dashboard, `/bets` and `/achievements`, which still
+  by this screen** — they stay only for the dashboard and `/achievements`, which still
   read fixtures, and retire with them.
 
 Rules this screen establishes:
@@ -163,7 +165,7 @@ Rules this screen establishes:
 - **Client components import types from the modules, never values.** The modules are server-only
   (`next/headers`); one value import from a file the browser loads breaks the route at build.
 - **The remaining fixtures agree per calendar month, not per rolling window** — the rule the
-  dashboard, `/bets` and `/achievements` still depend on until they read the backend.
+  dashboard and `/achievements` still depend on until they read the backend.
 - `SelectValue` needs **explicit children**. Radix fills it from the selected item, and items only
   register once the portal opens — leave it empty and the trigger renders blank on the server.
 
@@ -171,7 +173,7 @@ Rules this screen establishes:
 
 The first screen in this group that read **real backend data** rather than a fixture: the consent,
 the shared accounts and the newest statement rows all come from backend-anti-aposta. `/transactions`
-and `/transactions/insights` now do too; the dashboard, `/bets`, `/goals` and `/achievements` still
+, `/transactions/insights` and `/bets` now do too; the dashboard, `/goals` and `/achievements` still
 read fixtures, which is why the header's "Dados simulados" stays.
 
 - **One card per state, decided by the backend's status.** `AUTHORISED` shows `ConsentCard`
@@ -204,15 +206,29 @@ pre-selected.
 
 ## `/bets` — the consumption reframing
 
+It reads **one backend call**, `GET /bets/summary?days=` through `@modules/bet-detection`, so every
+section describes the same window. `_bets-view.ts` turns it into labels and bar widths and decides
+no figure; `_equivalences.ts` words the equivalences. `NO_CONSENT`/`SYNCING`/a failure render
+`StatementUnavailable`, and a window with no bets renders a neutral R$ 0,00 (`text-spend-none`) and
+nothing else.
+
 `AccumulatedCost` carries two reframings of the same total: fixed income answers "what would it
 have become", the `SpendingEquivalences` carousel answers "what would it have bought".
 
-- **Quantities are divided out of the real total, never written down.** An item the amount does not
-  cover is not shown. "1 carro" beside R$ 2.320,00 would discredit every other figure on the page.
-- **Two sources, kept apart.** Months of the reader's own grocery or rent bill come first and
-  invent nothing — the unit price is their own average and the detail line says so. The object
-  prices in `_equivalences.ts` are rounded estimates for the demo, which is why the card calls them
-  approximate. They belong in configuration before this is defensible.
+- **The hero is net of refunds** and equals the statement's `betSpend` for the same window to the
+  cent; the refunds line says how much was netted off. "Ver no extrato" opens
+  `?filter=bets&period=<n>d` — the same slice, never a wider one.
+- **A house is the backend's grouping**, keyed by an opaque `bookmakerId`, not by the counterparty
+  string. The summary does not carry a house's rows: the dialog shows how each policy matched and
+  links to the statement filtered by that house, which pages.
+- **A confidence travels with the reason that earned it.** The dialog pairs `weakest.confidence` with
+  `weakest.matchedBy`; the row names every policy that matched.
+- **Quantities are divided out of the real total on the backend, never written down.** An item the
+  amount does not cover is not sent. "1 carro" beside R$ 2.320,00 would discredit every other figure.
+- **Two sources, kept apart.** Months of the reader's own grocery or rent bill invent nothing — the
+  unit price is their own average over complete months, and the detail line says so. The object
+  prices are a catalogue the backend keeps as data with a review date; still approximations, which
+  is why the card calls them that.
 - **Auto-advance needs an off switch.** WCAG 2.2.2: anything moving on its own past five seconds
   must be pausable. It stops on hover, on keyboard focus, and on a visible button, and never starts
   for `prefers-reduced-motion`.

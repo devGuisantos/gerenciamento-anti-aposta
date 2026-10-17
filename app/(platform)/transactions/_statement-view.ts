@@ -51,6 +51,8 @@ export type StatementFilters = {
   readonly type: LedgerType;
   readonly period: LedgerPeriod;
   readonly accountId: string | null;
+  /** Opaque, from `/bets`. Never shown: a query-string value is not rendered as text. */
+  readonly bookmakerId: string | null;
   readonly search: string;
 };
 

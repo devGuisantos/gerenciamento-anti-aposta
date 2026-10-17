@@ -1,27 +1,27 @@
 /**
- * What the money spent on betting would have bought instead.
+ * What the money spent on betting would have bought instead, as words.
  *
- * This is the same System 2 reframing as the fixed-income figure, in objects a
- * person can picture. It is also the easiest thing on the screen to get wrong:
- * "you could have bought a car" next to R$ 2.320,00 discredits every other number
- * here. So **nothing is hard-coded as a conclusion** — quantities are divided out
- * of the real total, and an item that the amount does not actually cover is not
- * shown at all.
+ * The same System 2 reframing as the fixed-income figure, in objects a person
+ * can picture — and the easiest thing on the screen to get wrong: "you could
+ * have bought a car" next to R$ 2.320,00 discredits every other number here.
+ * So `awareness` divides the quantities out of the real total on the backend
+ * and leaves out anything the amount does not cover. This file only words them.
  *
- * Two sources, deliberately kept apart:
+ * Two sources, kept apart on the wire and in the copy:
  *
- * 1. `OWN_SPENDING` — months of the reader's own grocery, rent or delivery bill.
- *    Nothing is invented: the unit price is their own average, and the detail line
- *    says so. These are the honest ones and they come first.
- * 2. `REFERENCE_PRICE` — a small catalogue of everyday goods. These prices are
- *    **rounded estimates chosen for the demo**, not researched figures, which is
- *    why the UI labels them as approximate.
- *
- * TODO(awareness): the catalogue belongs in configuration, not in code — prices
- * move, and a stale one makes the whole card look careless. When `Reframing`
- * lands, seed it as data with a source and a review date.
+ * 1. `OWN_SPENDING` — months of the reader's own grocery, rent or delivery bill,
+ *    averaged over complete months only. Nothing is invented, and the detail
+ *    line says whose average it is and how many months it covers.
+ * 2. `REFERENCE_PRICE` — a catalogue of everyday goods kept as data on the
+ *    backend, with a review date. Still approximations, which the card says.
  */
-import { MONTHLY_HISTORY } from '../transactions/insights/_mock-monthly-history';
+import type {
+  BettingSummary,
+  OwnSpendingCategory,
+  OwnSpendingEquivalence,
+  ReferenceItemEquivalence,
+} from '@modules/bet-detection';
+import { formatBRL } from '@shared/ui/money-text';
 
 export type EquivalenceSource = 'OWN_SPENDING' | 'REFERENCE_PRICE';
 
@@ -40,76 +40,38 @@ export type Equivalence = {
   readonly targetInCents: number | null;
 };
 
-type ReferenceItem = {
-  readonly id: string;
-  readonly singular: string;
-  readonly plural: string;
-  readonly unitPriceInCents: number;
+const OWN_SPENDING_LABELS: Readonly<Record<OwnSpendingCategory, string>> = {
+  GROCERIES: 'de mercado',
+  HOUSING: 'de aluguel',
+  DINING: 'de delivery e restaurante',
+  TRANSPORT: 'de transporte',
+  SUBSCRIPTIONS: 'de assinaturas',
 };
 
-/** Rounded reference prices in BRL. Spread across magnitudes so the list still
- *  says something whether the total is R$ 300 or R$ 30.000. */
-const REFERENCE_ITEMS: readonly ReferenceItem[] = [
-  { id: 'cesta', singular: 'cesta básica', plural: 'cestas básicas', unitPriceInCents: 80_000 },
-  { id: 'passagem', singular: 'passagem aérea', plural: 'passagens aéreas', unitPriceInCents: 90_000 },
-  { id: 'bicicleta', singular: 'bicicleta', plural: 'bicicletas', unitPriceInCents: 120_000 },
-  { id: 'lavadora', singular: 'máquina de lavar', plural: 'máquinas de lavar', unitPriceInCents: 200_000 },
-  { id: 'celular', singular: 'celular', plural: 'celulares', unitPriceInCents: 180_000 },
-  { id: 'notebook', singular: 'notebook', plural: 'notebooks', unitPriceInCents: 250_000 },
-  { id: 'semestre', singular: 'semestre de faculdade', plural: 'semestres de faculdade', unitPriceInCents: 450_000 },
-  { id: 'moto', singular: 'moto 0 km', plural: 'motos 0 km', unitPriceInCents: 1_800_000 },
-  { id: 'carro', singular: 'carro popular usado', plural: 'carros populares usados', unitPriceInCents: 3_500_000 },
-];
-
-type OwnSpendingCategory = {
-  readonly id: string;
-  readonly label: string;
-  readonly read: (month: (typeof MONTHLY_HISTORY)[number]) => number;
-};
-
-const OWN_SPENDING_CATEGORIES: readonly OwnSpendingCategory[] = [
-  { id: 'mercado', label: 'de mercado', read: (month) => month.groceries },
-  { id: 'aluguel', label: 'de aluguel', read: (month) => month.housing },
-  { id: 'delivery', label: 'de delivery e restaurante', read: (month) => month.dining },
-  { id: 'transporte', label: 'de transporte', read: (month) => month.transport },
-  { id: 'assinaturas', label: 'de assinaturas', read: (month) => month.subscriptions },
-];
-
-const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-
-function averageInCents(read: (month: (typeof MONTHLY_HISTORY)[number]) => number): number {
-  if (MONTHLY_HISTORY.length === 0) return 0;
-  const total = MONTHLY_HISTORY.reduce((sum, month) => sum + read(month), 0);
-  return Math.round(total / MONTHLY_HISTORY.length);
+function describeMonths(count: number): string {
+  return `${count} ${count === 1 ? 'mês' : 'meses'}`;
 }
 
-function toMonthsEquivalence(
-  category: OwnSpendingCategory,
-  totalInCents: number,
-): Equivalence | null {
-  const average = averageInCents(category.read);
-  const months = average === 0 ? 0 : Math.floor(totalInCents / average);
-  if (months < 1) return null;
+function toMonthsEquivalence(own: OwnSpendingEquivalence): Equivalence {
+  const average = formatBRL(own.monthlyAverage.amountInCents);
+  const counted = own.completeMonthsCounted;
 
   return {
-    id: category.id,
-    text: `${months} ${months === 1 ? 'mês' : 'meses'} ${category.label}`,
-    detail: `pela sua média de ${BRL.format(average / 100)} por mês`,
+    id: own.category,
+    text: `${describeMonths(own.months)} ${OWN_SPENDING_LABELS[own.category]}`,
+    detail: `pela sua média de ${average} por mês, em ${describeMonths(counted)} ${counted === 1 ? 'completo' : 'completos'}`,
     source: 'OWN_SPENDING',
     targetInCents: null,
   };
 }
 
-function toItemEquivalence(item: ReferenceItem, totalInCents: number): Equivalence | null {
-  const quantity = Math.floor(totalInCents / item.unitPriceInCents);
-  if (quantity < 1) return null;
-
+function toItemEquivalence(item: ReferenceItemEquivalence): Equivalence {
   return {
     id: item.id,
-    text: `${quantity} ${quantity === 1 ? item.singular : item.plural}`,
-    detail: `a cerca de ${BRL.format(item.unitPriceInCents / 100)} cada`,
+    text: `${item.quantity} ${item.quantity === 1 ? item.singular : item.plural}`,
+    detail: `a cerca de ${formatBRL(item.unitPrice.amountInCents)} cada`,
     source: 'REFERENCE_PRICE',
-    targetInCents: quantity * item.unitPriceInCents,
+    targetInCents: item.target.amountInCents,
   };
 }
 
@@ -127,24 +89,17 @@ function interleave(
 /**
  * Objects and months alternate, starting with an object.
  *
- * Grouping them put all five months first, and months are exactly the ones that
+ * Grouping them put all the months first, and months are exactly the ones that
  * carry no savings target — so the first screenful of the carousel had not a
  * single goal button on it and the feature looked missing. Alternating means one
- * is always in view.
- *
- * Within each list the order is deliberate: the priciest thing the amount
- * actually covers first, and the reader's own bills in the order declared above.
+ * is always in view. Within each list the backend's order is kept: the priciest
+ * thing the amount covers first, and the reader's own bills in a fixed order.
  */
-export function selectEquivalences(totalInCents: number): readonly Equivalence[] {
-  const fromOwnSpending = OWN_SPENDING_CATEGORIES.map((category) =>
-    toMonthsEquivalence(category, totalInCents),
-  ).filter((equivalence) => equivalence !== null);
-
-  const fromCatalogue = REFERENCE_ITEMS.toSorted(
-    (left, right) => right.unitPriceInCents - left.unitPriceInCents,
-  )
-    .map((item) => toItemEquivalence(item, totalInCents))
-    .filter((equivalence) => equivalence !== null);
-
-  return interleave(fromCatalogue, fromOwnSpending);
+export function toEquivalences(
+  equivalences: BettingSummary['equivalences'],
+): readonly Equivalence[] {
+  return interleave(
+    equivalences.referenceItems.map(toItemEquivalence),
+    equivalences.ownSpending.map(toMonthsEquivalence),
+  );
 }

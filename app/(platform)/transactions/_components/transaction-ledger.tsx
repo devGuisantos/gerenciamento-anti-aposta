@@ -164,8 +164,13 @@ function toScopeLabel(filters: StatementFilters, accounts: readonly ConnectedAcc
     PERIOD_OPTIONS.find((option) => option.value === filters.period)?.label ?? ''
   ).toLowerCase();
   const account = accounts.find((candidate) => candidate.id === filters.accountId);
+  const parts = [
+    periodLabel,
+    account?.shortName,
+    filters.bookmakerId === null ? undefined : 'uma casa de apostas',
+  ];
 
-  return account === undefined ? periodLabel : `${periodLabel} · ${account.shortName}`;
+  return parts.filter((part) => part !== undefined).join(' · ');
 }
 
 type StatementPagesProps = {

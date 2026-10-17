@@ -80,6 +80,39 @@ export async function listRecipientAccountsAction(
 
 const ANCHORED_AMOUNT_PATTERN = new RegExp(`^${AMOUNT_PATTERN.source}$`);
 const DIGITS_ONLY = /^\d+$/;
+const MILLISECONDS_IN_A_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * The platform re-reads the last 365 days on every synchronisation, so an
+ * entry booked further back would sit at the bank and never reach the statement.
+ */
+const MAXIMUM_DAYS_AGO = 364;
+
+const LAST_HOUR_OF_DAY = 23;
+
+/**
+ * `/bets` counts hours in São Paulo time, so the hour typed here is São Paulo
+ * time too, whatever clock this server runs on. A fixed offset is exact:
+ * Brazil has had no daylight saving since 2019.
+ */
+const SAO_PAULO_OFFSET = '-03:00';
+const SAO_PAULO_DAY_KEY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
+
+/**
+ * `daysAgo` days back, at `hour` o'clock in São Paulo, or at the current time
+ * of day when no hour is given. `null` lets the bank's clock decide.
+ */
+function toBookedAt(daysAgo: number, hour: number | null): Date | null {
+  const sameTimeThatDay = new Date(Date.now() - daysAgo * MILLISECONDS_IN_A_DAY);
+
+  if (hour === null) {
+    return daysAgo === 0 ? null : sameTimeThatDay;
+  }
+
+  const dayKey = SAO_PAULO_DAY_KEY.format(sameTimeThatDay);
+
+  return new Date(`${dayKey}T${String(hour).padStart(2, '0')}:00:00${SAO_PAULO_OFFSET}`);
+}
 
 /**
  * Every message in Portuguese, including for fields the form never leaves
@@ -112,6 +145,22 @@ const ledgerEntrySchema = z.object({
       (value) => value === '' || (DIGITS_ONLY.test(value) && [11, 14].includes(value.length)),
       'Use 11 dígitos (CPF) ou 14 (CNPJ), só números.',
     ),
+  daysAgo: z
+    .string()
+    .trim()
+    .refine(
+      (value) => DIGITS_ONLY.test(value) && Number(value) <= MAXIMUM_DAYS_AGO,
+      `Use um número de dias entre 0 e ${MAXIMUM_DAYS_AGO}.`,
+    )
+    .transform(Number),
+  hour: z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === '' || (DIGITS_ONLY.test(value) && Number(value) <= LAST_HOUR_OF_DAY),
+      `Use uma hora entre 0 e ${LAST_HOUR_OF_DAY}, ou deixe em branco.`,
+    )
+    .transform((value) => (value === '' ? null : Number(value))),
 });
 
 export type LedgerEntryFormInput = z.input<typeof ledgerEntrySchema>;
@@ -141,12 +190,20 @@ export async function bookLedgerEntryForAction(
     return { ok: false, message: fields.error.issues[0]?.message ?? 'Confira os campos.' };
   }
 
-  const { direction, amount, merchantCategoryCode, payeeDocument, ...entry } = fields.data;
+  const { direction, amount, merchantCategoryCode, payeeDocument, daysAgo, hour, ...entry } = fields.data;
+  const bookedAt = toBookedAt(daysAgo, hour);
+
+  /* A settled movement that has not happened yet is not one the bank could book. */
+  if (bookedAt !== null && bookedAt.getTime() > Date.now()) {
+    return { ok: false, message: 'Esse horário ainda não chegou hoje. Escolha uma hora que já passou.' };
+  }
+
   const result = await bookLedgerEntryFor(token, recipient.data, {
     ...entry,
     amountInCents: direction === 'DEBIT' ? -amount : amount,
     merchantCategoryCode: merchantCategoryCode === '' ? null : Number(merchantCategoryCode),
     payeeDocument: payeeDocument === '' ? null : payeeDocument,
+    bookedAt: bookedAt?.toISOString(),
   });
 
   if (!result.ok) {
