@@ -365,8 +365,17 @@ turn into the thing the product opposes. Its parts live in `achievements/`:
   every streak from the ledger and holds the arithmetic.
 - `_badge.ts` is the catalogue — titles, criteria, thresholds — and carries the module's rules as
   comments where the data is. `_badges-view.ts` evaluates it against what was observed.
+- `_achievements-snapshot.ts` derives the streaks, the calendar and the awards once per request.
+  `page.tsx` and `[family]/page.tsx` both read it, so a folder's count and the list behind it
+  cannot disagree.
+- **The badges are folded by family.** `/achievements` shows one `BadgeFamilyFolder` per family —
+  its count, its latest earned badge (or, before one, the first with its distance) — linking to
+  `/achievements/<slug>` (`streak`, `ceiling`, `reduction`, `savings`), which lists every badge of
+  that family as `BadgeDialog` cards. A route rather than a sheet: it has a back button, and the
+  cards open their dialog without stacking one modal on another. Folding hides nothing — every
+  folder states how many badges it holds. An unknown slug is a 404.
 - `_components/` holds the presentation. **The screen itself is entirely server-rendered** — the
-  hero, the calendar strip, the streak list and the badge cards hold no state and ship no
+  hero, the calendar strip, the streak list, the folders and the badge cards hold no state and ship no
   JavaScript of their own, which matters for an audience on cheap phones. The client half is only
   what has to be: `badge-dialog.tsx` (the detail popup each card opens), `badge-awarded-dialog.tsx`
   (the celebration, rendered by the layout’s `NotificationListener`) and `badge-medal.tsx` (the

@@ -31,6 +31,8 @@
  */
 import { Flame, PiggyBank, Target, TrendingDown } from 'lucide-react';
 
+import { assertNever } from '@shared/domain/assert-never';
+
 /** What a badge is counted in. One family, one figure, so no two can disagree. */
 export type BadgeFamily = 'STREAK' | 'CEILING' | 'REDUCTION' | 'SAVINGS';
 
@@ -44,6 +46,8 @@ export type BadgeFamily = 'STREAK' | 'CEILING' | 'REDUCTION' | 'SAVINGS';
 export type BadgeEvidence = 'MEASURED' | 'SELF_REPORTED';
 
 export type BadgeFamilyDescriptor = {
+  /** The family's segment under `/achievements`, where its whole list is shown. */
+  readonly slug: string;
   readonly label: string;
   readonly description: string;
   readonly evidence: BadgeEvidence;
@@ -60,6 +64,7 @@ export type BadgeFamilyDescriptor = {
 
 export const BADGE_FAMILY_DESCRIPTORS: Readonly<Record<BadgeFamily, BadgeFamilyDescriptor>> = {
   STREAK: {
+    slug: 'streak',
     label: 'Dias sem apostas',
     description:
       'Contados no seu extrato: dias inteiros em que nenhuma aposta foi identificada. O dia de hoje só entra na conta quando termina.',
@@ -69,6 +74,7 @@ export const BADGE_FAMILY_DESCRIPTORS: Readonly<Record<BadgeFamily, BadgeFamilyD
     evidenceLink: { href: '/transactions?filter=bets&period=all', label: 'Ver as apostas identificadas' },
   },
   CEILING: {
+    slug: 'ceiling',
     label: 'Teto de gastos',
     description:
       'Meses fechados em que o gasto com apostas ficou dentro do teto que você mesmo definiu em Metas.',
@@ -78,6 +84,7 @@ export const BADGE_FAMILY_DESCRIPTORS: Readonly<Record<BadgeFamily, BadgeFamilyD
     evidenceLink: { href: '/goals', label: 'Ver o teto que você definiu' },
   },
   REDUCTION: {
+    slug: 'reduction',
     label: 'Queda no gasto',
     description:
       'Meses fechados em que o gasto com apostas foi menor que no mês anterior. Comparação entre meses inteiros, nunca com o mês em andamento.',
@@ -87,6 +94,7 @@ export const BADGE_FAMILY_DESCRIPTORS: Readonly<Record<BadgeFamily, BadgeFamilyD
     evidenceLink: { href: '/transactions/insights', label: 'Ver o gasto mês a mês' },
   },
   SAVINGS: {
+    slug: 'savings',
     label: 'Metas de poupança',
     description:
       'Metas que você registrou e concluiu. Estes valores são os que você anotou — o Open Finance mostra um extrato, não mostra que um dinheiro foi guardado de propósito.',
@@ -214,3 +222,26 @@ export const BADGE_FAMILY_ORDER: readonly BadgeFamily[] = [
   'REDUCTION',
   'SAVINGS',
 ];
+
+/**
+ * Resolves the `/achievements/[family]` segment. `null` for anything else: the
+ * segment is whatever somebody typed in the address bar, and the page answers an
+ * unknown one with a 404 rather than an empty list.
+ */
+/** Said in words beside every family, because it changes how much a badge is worth. */
+export function describeEvidence(evidence: BadgeEvidence): string {
+  switch (evidence) {
+    case 'MEASURED':
+      return 'Medido no extrato';
+    case 'SELF_REPORTED':
+      return 'Registrado por você';
+    default:
+      return assertNever(evidence);
+  }
+}
+
+export function findBadgeFamilyBySlug(slug: string): BadgeFamily | null {
+  return (
+    BADGE_FAMILY_ORDER.find((family) => BADGE_FAMILY_DESCRIPTORS[family].slug === slug) ?? null
+  );
+}
