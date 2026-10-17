@@ -85,6 +85,10 @@ export function RecordMovementDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [burst, setBurst] = useState<ConfettiBurst | null>(null);
+  /* One key per opening of the dialog, minted in the event that opens it — never
+     during render. A submit retried on a slow connection carries the same key,
+     so the backend books the amount once instead of twice. */
+  const [idempotencyKey, setIdempotencyKey] = useState('');
   const [isSaving, startSaving] = useTransition();
   const prefersReducedMotion = usePrefersReducedMotion();
   const TriggerIcon = copy.icon;
@@ -125,6 +129,7 @@ export function RecordMovementDialog({
         onOpenChange={(open) => {
           setIsOpen(open);
           setError(null);
+          if (open) setIdempotencyKey(crypto.randomUUID());
         }}
       >
         <DialogTrigger asChild>
@@ -153,6 +158,7 @@ export function RecordMovementDialog({
           <form action={submit} className="space-y-4">
             <input type="hidden" name="goalId" value={goalId} />
             <input type="hidden" name="direction" value={direction} />
+            <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
 
             <AmountField
               name="amountInCents"

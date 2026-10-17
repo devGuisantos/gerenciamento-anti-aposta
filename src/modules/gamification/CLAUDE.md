@@ -32,3 +32,17 @@ The SDT mapping is explicit, and code comments should say _why_ a mechanic exist
   would be applauding a visit — see `/achievements` in `app/(platform)/CLAUDE.md`.
 
 Emits `BadgeAwarded`, `StreakBroken`, `GoalReached`.
+
+## In this repository
+
+The rules run on **backend-anti-aposta** (contract: `docs/features/goals.md` there); this module is a
+client of its API and holds no rule. Server-only, like the others: a Client Component imports types
+from here, never values — which is why the purpose list the `<select>` needs lives in
+`app/(platform)/goals/_savings-goal.ts`, typed against `GoalPurpose` from here.
+
+- `infrastructure/savings-goals-api.ts` — `listSavingsGoals`, `createSavingsGoal`,
+  `listGoalMovements` (paged, newest first) and `recordGoalMovement`, which sends an
+  `Idempotency-Key`. The balance, the over-withdrawal refusal and `reachedNow` are the backend's.
+- `infrastructure/betting-ceiling-api.ts` — `describeBettingCeiling` (cycles, the open month's
+  reframing and every simulator stop, computed there) and `setBettingCeiling` (`PUT`; the month under
+  way keeps its ceiling, so the answer says from which month the value governs).

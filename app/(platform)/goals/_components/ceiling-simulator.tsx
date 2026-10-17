@@ -6,26 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Slider } from '@/components/ui/slider';
 import { formatBRL } from '@shared/ui/money-text';
 
-import { FIXED_INCOME_ANNUAL_RATE } from '../../dashboard/_mock-snapshot';
-import { toYieldEquivalentInCents } from '../../transactions/_ledger-view';
-import {
-  CEILING_STEP_IN_CENTS,
-  simulateCeiling,
-  type CeilingSimulation,
-  type MonthlyBetTotal,
-} from '../_goals-view';
+import { stepAt, type SimulatorModel } from '../_ceiling-view';
 import { SetCeilingAction } from './set-ceiling-action';
 
 const CENTS_PER_REAL = 100;
 
-const ratePercent = (FIXED_INCOME_ANNUAL_RATE * 100).toFixed(1).replace('.', ',');
-
 type CeilingSimulatorProps = {
-  /** Closed months only — half a month would understate every ceiling tried here. */
-  readonly months: readonly MonthlyBetTotal[];
-  readonly capInCents: number;
-  /** Opens on the ceiling the user already chose, so the first thing they see is theirs. */
-  readonly initialCeilingInCents: number;
+  readonly model: SimulatorModel;
+  /** "9,3" — the rate the backend reframed each average with. */
+  readonly rateLabel: string;
 };
 
 /**
@@ -36,15 +25,13 @@ type CeilingSimulatorProps = {
  * in counts and differences and never in advice — it does not recommend a value,
  * and it does not say what the money would have been spent on instead.
  *
- * It changes nothing until the user says so, and the copy says that up front.
+ * Every figure is a stop the backend computed; the slider only chooses which one
+ * to read. Nothing changes until the user presses the button, and the copy says
+ * so up front.
  */
-export function CeilingSimulator({
-  months,
-  capInCents,
-  initialCeilingInCents,
-}: CeilingSimulatorProps) {
-  const [ceilingInCents, setCeilingInCents] = useState(initialCeilingInCents);
-  const simulation = simulateCeiling(months, ceilingInCents);
+export function CeilingSimulator({ model, rateLabel }: CeilingSimulatorProps) {
+  const [ceilingInCents, setCeilingInCents] = useState(model.initialCeilingInCents);
+  const step = stepAt(model, ceilingInCents);
 
   return (
     <Card>
@@ -75,20 +62,22 @@ export function CeilingSimulator({
           <Slider
             aria-label="Teto mensal de gastos com apostas, em reais"
             min={0}
-            max={capInCents / CENTS_PER_REAL}
-            step={CEILING_STEP_IN_CENTS / CENTS_PER_REAL}
+            max={model.capInCents / CENTS_PER_REAL}
+            step={model.stepInCents / CENTS_PER_REAL}
             value={[ceilingInCents / CENTS_PER_REAL]}
-            onValueChange={([reais]) => setCeilingInCents(reais * CENTS_PER_REAL)}
+            onValueChange={([reais]) => setCeilingInCents(Math.round(reais * CENTS_PER_REAL))}
             className="py-2 [&_[data-slot=slider-thumb]]:size-4 [&_[data-slot=slider-thumb]]:after:-inset-3"
           />
 
           <div className="flex justify-between text-xs text-muted-foreground tabular-nums">
             <span>{formatBRL(0)}</span>
-            <span>{formatBRL(capInCents)}</span>
+            <span>{formatBRL(model.capInCents)}</span>
           </div>
         </div>
 
-        <SimulationReading simulation={simulation} />
+        {step === null ? null : (
+          <SimulationReading step={step} monthsCounted={model.monthsCounted} rateLabel={rateLabel} />
+        )}
 
         <SetCeilingAction ceilingInCents={ceilingInCents} />
       </CardContent>
@@ -96,14 +85,29 @@ export function CeilingSimulator({
   );
 }
 
-function SimulationReading({ simulation }: { readonly simulation: CeilingSimulation }) {
-  const monthsAbove = simulation.monthsCounted - simulation.monthsWithin;
+type SimulationReadingProps = {
+  readonly step: NonNullable<ReturnType<typeof stepAt>>;
+  readonly monthsCounted: number;
+  readonly rateLabel: string;
+};
+
+function SimulationReading({ step, monthsCounted, rateLabel }: SimulationReadingProps) {
+  const monthsAbove = monthsCounted - step.monthsWithin;
+
+  if (monthsCounted === 0) {
+    return (
+      <p className="rounded-lg bg-muted p-4 text-sm">
+        Ainda não há um mês fechado com dados para comparar. O primeiro aparece aqui quando o mês
+        acabar.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-2 rounded-lg bg-muted p-4">
       <p className="text-sm">
-        Nos últimos {simulation.monthsCounted} meses fechados, você teria ficado dentro desse teto
-        em <span className="font-medium">{simulation.monthsWithin}</span> deles.
+        Nos últimos {monthsCounted} meses fechados, você teria ficado dentro desse teto em{' '}
+        <span className="font-medium">{step.monthsWithin}</span> deles.
       </p>
 
       {monthsAbove === 0 ? (
@@ -112,12 +116,12 @@ function SimulationReading({ simulation }: { readonly simulation: CeilingSimulat
         <>
           <p className="text-xs text-muted-foreground">
             Nos outros {monthsAbove}, o gasto passou o teto em{' '}
-            {formatBRL(simulation.averageExcessInCents)} por mês, em média.
+            {formatBRL(step.averageExcess.amountInCents)} por mês, em média.
           </p>
           <p className="text-xs text-muted-foreground">
             Esse valor médio, aplicado em renda fixa por 12 meses, seria{' '}
-            {formatBRL(toYieldEquivalentInCents(simulation.averageExcessInCents, FIXED_INCOME_ANNUAL_RATE))}
-            . Estimativa a {ratePercent}% ao ano — não é garantia de retorno.
+            {formatBRL(step.averageExcessYieldEquivalent.amountInCents)}. Estimativa a {rateLabel}%
+            ao ano — não é garantia de retorno.
           </p>
         </>
       )}

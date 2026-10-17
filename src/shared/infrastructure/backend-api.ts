@@ -40,13 +40,15 @@ const UNAVAILABLE: BackendFailure = {
 };
 
 type BackendRequest<T> = {
-  readonly method: 'GET' | 'POST' | 'DELETE';
+  readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   /** Which system is called; `API` unless said otherwise. */
   readonly surface?: BackendSurface;
   /** Relative to the surface's prefix, e.g. `/identity/sessions`. */
   readonly path: string;
   readonly body?: unknown;
   readonly sessionToken?: string;
+  /** Request-specific headers such as `Idempotency-Key`. Never a credential: that is `sessionToken`. */
+  readonly headers?: Readonly<Record<string, string>>;
   /** Parses the success body; the wire is a boundary like any other. */
   readonly responseSchema: z.ZodType<T>;
 };
@@ -76,6 +78,7 @@ export async function callBackend<T>(request: BackendRequest<T>): Promise<Backen
 
 function headersFor(request: BackendRequest<unknown>): HeadersInit {
   return {
+    ...request.headers,
     ...(request.body === undefined ? {} : { 'Content-Type': 'application/json' }),
     ...(request.sessionToken === undefined
       ? {}

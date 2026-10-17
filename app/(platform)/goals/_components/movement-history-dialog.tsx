@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { History, PiggyBank, HandCoins } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -13,8 +13,10 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { FormError } from '@shared/ui/form-error';
 import { formatBRL } from '@shared/ui/money-text';
 
+import { loadMovementsAction } from '../_actions';
 import type { MovementDirection } from '../_savings-goal';
 import type { MovementRow } from '../_savings-goals-view';
 
@@ -29,10 +31,15 @@ const DIRECTION_ICONS: Readonly<Record<MovementDirection, typeof PiggyBank>> = {
 };
 
 type MovementHistoryDialogProps = {
+  readonly goalId: string;
   readonly goalTitle: string;
   readonly savedInCents: number;
-  /** Newest first, with every date already resolved on the server. */
-  readonly movements: readonly MovementRow[];
+  readonly movementCount: number;
+};
+
+type LoadedHistory = {
+  readonly rows: readonly MovementRow[];
+  readonly nextCursor: string | null;
 };
 
 /**
@@ -44,17 +51,46 @@ type MovementHistoryDialogProps = {
  *
  * Behind a dialog rather than on the card: the list grows without limit and the
  * cards have to stay scannable on a phone. Same progressive disclosure the
- * statement rows use.
+ * statement rows use — and the same paging: the history is read when the dialog
+ * opens, one backend page at a time, with every date already a label.
  */
 export function MovementHistoryDialog({
+  goalId,
   goalTitle,
   savedInCents,
-  movements,
+  movementCount,
 }: MovementHistoryDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [history, setHistory] = useState<LoadedHistory | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, startLoading] = useTransition();
+
+  function load(cursor: string | null) {
+    startLoading(async () => {
+      const page = await loadMovementsAction({ goalId, cursor });
+      if (!page.ok) {
+        setError(page.message);
+        return;
+      }
+      setError(null);
+      setHistory((loaded) => ({
+        rows: cursor === null ? page.rows : [...(loaded?.rows ?? []), ...page.rows],
+        nextCursor: page.nextCursor,
+      }));
+    });
+  }
+
+  /* Read afresh on every opening: a movement recorded since the last one has to be
+     in the list the balance above it is summed from. */
+  function changeOpen(open: boolean) {
+    setIsOpen(open);
+    if (!open) return;
+    setHistory(null);
+    load(null);
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={changeOpen}>
       <DialogTrigger asChild>
         <Button
           variant="ghost"
@@ -63,7 +99,7 @@ export function MovementHistoryDialog({
           aria-label={`Histórico de ${goalTitle}`}
         >
           <History />
-          Histórico ({movements.length})
+          Histórico ({movementCount})
         </Button>
       </DialogTrigger>
 
@@ -78,22 +114,62 @@ export function MovementHistoryDialog({
           é a soma destes lançamentos — {formatBRL(savedInCents)}.
         </p>
 
-        {movements.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nada registrado ainda. Use <strong>Guardar</strong> para anotar o primeiro valor.
-          </p>
-        ) : (
-          <ul className="max-h-80 overflow-y-auto">
-            {movements.map((movement, index) => (
-              <li key={movement.id}>
-                {index > 0 ? <Separator /> : null}
-                <MovementLine movement={movement} />
-              </li>
-            ))}
-          </ul>
-        )}
+        <FormError message={error} />
+
+        <HistoryBody
+          history={history}
+          isLoading={isLoading}
+          onLoadMore={(cursor) => load(cursor)}
+        />
       </DialogContent>
     </Dialog>
+  );
+}
+
+type HistoryBodyProps = {
+  readonly history: LoadedHistory | null;
+  readonly isLoading: boolean;
+  readonly onLoadMore: (cursor: string) => void;
+};
+
+function HistoryBody({ history, isLoading, onLoadMore }: HistoryBodyProps) {
+  if (history === null) {
+    return isLoading ? <p className="text-sm text-muted-foreground">Carregando o histórico…</p> : null;
+  }
+
+  if (history.rows.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Nada registrado ainda. Use <strong>Guardar</strong> para anotar o primeiro valor.
+      </p>
+    );
+  }
+
+  const { nextCursor } = history;
+
+  return (
+    <div className="space-y-3">
+      <ul className="max-h-80 overflow-y-auto">
+        {history.rows.map((movement, index) => (
+          <li key={movement.id}>
+            {index > 0 ? <Separator /> : null}
+            <MovementLine movement={movement} />
+          </li>
+        ))}
+      </ul>
+
+      {nextCursor === null ? null : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 w-full"
+          disabled={isLoading}
+          onClick={() => onLoadMore(nextCursor)}
+        >
+          {isLoading ? 'Carregando…' : 'Carregar mais'}
+        </Button>
+      )}
+    </div>
   );
 }
 

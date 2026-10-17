@@ -2,7 +2,8 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { formatBRL } from '@shared/ui/money-text';
 
-import { describeCycleMargin, type GoalCycle } from '../_goals-view';
+import type { CycleRow } from '../_ceiling-view';
+import { describeCycleMargin } from '../_goals-view';
 import { CycleStatusBadge } from './cycle-status-badge';
 
 /** The bar cannot run past its own track; the figures beside it keep the real number. */
@@ -10,7 +11,7 @@ const FULL_BAR = 100;
 
 type GoalCycleListProps = {
   /** Closed months only, newest first. The open one belongs to the screen's hero. */
-  readonly cycles: readonly GoalCycle[];
+  readonly cycles: readonly CycleRow[];
 };
 
 /**
@@ -33,9 +34,9 @@ export function GoalCycleList({ cycles }: GoalCycleListProps) {
     <div className="space-y-4">
       <ul className="space-y-4">
         {cycles.map((cycle, index) => (
-          <li key={cycle.monthsAgo} className="space-y-3">
+          <li key={cycle.monthKey} className="space-y-3">
             {index > 0 ? <Separator /> : null}
-            <CycleRow cycle={cycle} />
+            <CycleLine cycle={cycle} />
           </li>
         ))}
       </ul>
@@ -45,7 +46,7 @@ export function GoalCycleList({ cycles }: GoalCycleListProps) {
   );
 }
 
-function CycleRow({ cycle }: { readonly cycle: GoalCycle }) {
+function CycleLine({ cycle }: { readonly cycle: CycleRow }) {
   const isOverCeiling = cycle.marginInCents < 0;
 
   return (
@@ -75,7 +76,7 @@ function CycleRow({ cycle }: { readonly cycle: GoalCycle }) {
  * Counts, and stops. "1 de 3" is a fact the reader can do what they like with;
  * "você só conseguiu em 1 mês" is the product telling somebody off.
  */
-function describeRecord(cycles: readonly GoalCycle[]): string {
+function describeRecord(cycles: readonly CycleRow[]): string {
   const within = cycles.filter((cycle) => cycle.status === 'REACHED').length;
   const months = cycles.length === 1 ? 'mês fechado' : 'meses fechados';
   return `Dentro do teto em ${within} de ${cycles.length} ${months}.`;

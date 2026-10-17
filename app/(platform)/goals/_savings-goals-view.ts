@@ -1,29 +1,28 @@
 /**
- * Presentation model for the savings goals.
+ * Presentation model for the savings goals: labels and nothing else.
  *
- * The balance is **derived from the movements every time**, never stored. A kept
- * total and a list of movements are two things that can disagree, and the one the
- * user would believe is the total — which is the one that would be wrong. Summing
- * eleven entries costs nothing and cannot drift.
- *
- * Dates are resolved here, on the server, for the same reason the statement screen
- * does it: the interactive parts never call `new Date()` and so cannot render a
- * different day than the server did.
- *
- * TODO(gamification): this is `Goal`'s read model. `savedInCents` becomes the
- * aggregate's own invariant — a withdrawal larger than the balance has to be
- * refused in the domain, with the negative case tested first.
+ * Every figure — the balance summed from the movements, the progress, what is
+ * left, whether the goal is reached — arrives decided from `gamification` on
+ * the backend. Dates are resolved here, on the server and in São Paulo time, for
+ * the same reason the statement screen does it: the interactive parts never call
+ * `new Date()` and so cannot render a different day than the server did.
  */
-import { assertNever } from '@shared/domain/assert-never';
-
-import type { GoalMovement, MovementDirection, SavingsGoal } from './_savings-goal';
+import type { GoalMovement, MovementDirection, SavingsGoal } from '@modules/gamification';
 
 const DATE_AND_TIME_FORMAT = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo',
   day: '2-digit',
   month: 'long',
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
+});
+
+const DATE_FORMAT = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
 });
 
 export type MovementRow = {
@@ -42,59 +41,44 @@ export type SavingsGoalRow = {
   /** Uncapped: somebody who saved more than they planned deserves to see it. */
   readonly progressPercentage: number;
   readonly isReached: boolean;
+  /**
+   * "12 de outubro de 2026": the first time the balance reached the target, as
+   * the backend recorded it. `null` before that. It stays set after a
+   * withdrawal, which is why the card shows it only while `isReached` holds.
+   */
+  readonly reachedAtLabel: string | null;
   /** Zero once the target is met, so no card ever shows a negative "faltam". */
   readonly remainingInCents: number;
-  /** Newest first, the order the history reads in. */
-  readonly movements: readonly MovementRow[];
+  /** The history itself loads when its dialog opens; the count is on the button. */
+  readonly movementCount: number;
 };
 
-function toSignedAmount(movement: GoalMovement): number {
-  switch (movement.direction) {
-    case 'DEPOSIT':
-      return movement.amountInCents;
-    case 'WITHDRAWAL':
-      return -movement.amountInCents;
-    default:
-      return assertNever(movement.direction);
-  }
-}
-
-export function toSavedInCents(movements: readonly GoalMovement[]): number {
-  return movements.reduce((balance, movement) => balance + toSignedAmount(movement), 0);
-}
-
-function toProgressPercentage(savedInCents: number, targetInCents: number): number {
-  if (targetInCents <= 0) return 0;
-  return Math.round((savedInCents / targetInCents) * 100);
-}
-
-function toMovementRow(movement: GoalMovement): MovementRow {
-  return {
-    id: movement.id,
-    direction: movement.direction,
-    amountInCents: movement.amountInCents,
-    occurredAtLabel: DATE_AND_TIME_FORMAT.format(new Date(movement.occurredAt)),
-  };
-}
-
 export function toSavingsGoalRow(goal: SavingsGoal): SavingsGoalRow {
-  const savedInCents = toSavedInCents(goal.movements);
-
   return {
     id: goal.id,
     title: goal.title,
     purpose: goal.purpose,
-    targetInCents: goal.targetInCents,
-    savedInCents,
-    progressPercentage: toProgressPercentage(savedInCents, goal.targetInCents),
-    isReached: savedInCents >= goal.targetInCents,
-    remainingInCents: Math.max(0, goal.targetInCents - savedInCents),
-    movements: goal.movements.map(toMovementRow),
+    targetInCents: goal.target.amountInCents,
+    savedInCents: goal.saved.amountInCents,
+    progressPercentage: goal.progressPercent,
+    isReached: goal.isReached,
+    reachedAtLabel: goal.reachedAt === null ? null : DATE_FORMAT.format(new Date(goal.reachedAt)),
+    remainingInCents: goal.remaining.amountInCents,
+    movementCount: goal.movementCount,
   };
 }
 
 export function toSavingsGoalRows(goals: readonly SavingsGoal[]): readonly SavingsGoalRow[] {
   return goals.map(toSavingsGoalRow);
+}
+
+export function toMovementRows(movements: readonly GoalMovement[]): readonly MovementRow[] {
+  return movements.map((movement) => ({
+    id: movement.id,
+    direction: movement.direction,
+    amountInCents: movement.amount.amountInCents,
+    occurredAtLabel: DATE_AND_TIME_FORMAT.format(new Date(movement.occurredAt)),
+  }));
 }
 
 export type SavingsSummary = {
@@ -104,6 +88,7 @@ export type SavingsSummary = {
   readonly reachedCount: number;
 };
 
+/** The section's one line of totals: a count and two sums of what the backend sent. */
 export function summariseSavings(rows: readonly SavingsGoalRow[]): SavingsSummary {
   return {
     goalCount: rows.length,
