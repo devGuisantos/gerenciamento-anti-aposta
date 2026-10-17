@@ -1,65 +1,61 @@
 import type { Metadata } from 'next';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { describeBettingCeiling, listSavingsGoals, type BettingCeilingOverview } from '@modules/gamification';
+import { readSessionToken, requireSession } from '@modules/identity';
+import { assertNever } from '@shared/domain/assert-never';
+import type { BackendResult } from '@shared/infrastructure/backend-api';
 
-import { MONTHLY_HISTORY } from '../transactions/insights/_mock-monthly-history';
+import {
+  StatementUnavailable,
+  type StatementUnavailableReason,
+} from '../transactions/_components/statement-unavailable';
+import {
+  toCurrentCycleRow,
+  toCycleRow,
+  toMonthName,
+  toRateLabel,
+  toScheduledCeiling,
+  toSimulatorModel,
+} from './_ceiling-view';
 import { CeilingSimulator } from './_components/ceiling-simulator';
 import { CurrentCycleCard } from './_components/current-cycle-card';
 import { GoalCycleList } from './_components/goal-cycle-list';
 import { SavingsGoalsSection } from './_components/savings-goals-section';
-import { listSavingsGoals } from './_savings-goals-store';
 import { toSavingsGoalRows } from './_savings-goals-view';
-import {
-  countDaysRemainingInMonth,
-  selectActiveGoal,
-  selectCycles,
-  toCeilingCap,
-  toNextMonthLabel,
-  type MonthlyBetTotal,
-} from './_goals-view';
-import { GOALS } from './_mock-goals';
-import { requireSession } from '@modules/identity';
 
 export const metadata: Metadata = {
   title: 'Metas',
   description: 'O teto que você definiu para gastos com apostas, e como cada mês ficou nele.',
 };
 
-/** Every label here is relative to today: which month is open, and how much of it is left. */
+/** One person's data, and every label is relative to today: which month is open, and how much is left. */
 export const dynamic = 'force-dynamic';
-
-/* The same monthly totals the charts read, so a month inside the ceiling here is
-   the same figure on every other screen. */
-const MONTHS: readonly MonthlyBetTotal[] = MONTHLY_HISTORY.map((month) => ({
-  monthsAgo: month.monthsAgo,
-  betsInCents: month.bets,
-}));
-
-/** The open month is half a month; counting it would understate every ceiling tried. */
-const CLOSED_MONTHS = MONTHS.filter((month) => month.monthsAgo > 0);
-
-const CEILING_CAP_IN_CENTS = toCeilingCap(MONTHS);
 
 export default async function GoalsPage() {
   await requireSession();
-  const reference = new Date();
-  const cycles = selectCycles(GOALS, MONTHS, reference);
-  const currentCycle = cycles.find((cycle) => cycle.monthsAgo === 0);
-  const closedCycles = cycles.filter((cycle) => cycle.monthsAgo > 0);
-  const activeGoal = selectActiveGoal(GOALS);
+  const token = await readSessionToken();
+
+  if (token === null) {
+    return null;
+  }
+
+  const [savings, ceiling] = await Promise.all([
+    listSavingsGoals(token),
+    describeBettingCeiling(token),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="space-y-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">Metas</h1>
-        <p className="text-sm text-muted-foreground">
-          Duas coisas diferentes com o mesmo nome: o dinheiro que você está juntando, que você
-          registra, e o teto de gastos com apostas, que a gente mede no seu extrato. Quem escolhe
-          os valores é você.
-        </p>
-      </div>
+      {/* No visible header: each section names itself. The `h1` stays for anyone
+          navigating by headings, who would otherwise land on a page with none. */}
+      <h1 className="sr-only">Metas</h1>
 
-      <SavingsGoalsSection goals={toSavingsGoalRows(listSavingsGoals())} />
+      {savings.ok ? (
+        <SavingsGoalsSection goals={toSavingsGoalRows(savings.value.items)} />
+      ) : (
+        <StatementUnavailable reason={{ kind: 'FAILED', message: savings.failure.message }} />
+      )}
 
       <section className="space-y-4">
         <div className="space-y-1">
@@ -72,37 +68,76 @@ export default async function GoalsPage() {
           </p>
         </div>
 
-        {currentCycle ? (
-          <CurrentCycleCard
-            cycle={currentCycle}
-            daysRemaining={countDaysRemainingInMonth(reference)}
-            nextMonthLabel={toNextMonthLabel(reference)}
-          />
-        ) : (
-          <NoGoalCard />
-        )}
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Meses anteriores</CardTitle>
-              <CardDescription>
-                Como cada mês fechado ficou em relação ao teto que valia nele.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <GoalCycleList cycles={closedCycles} />
-            </CardContent>
-          </Card>
-
-          <CeilingSimulator
-            months={CLOSED_MONTHS}
-            capInCents={CEILING_CAP_IN_CENTS}
-            initialCeilingInCents={activeGoal?.ceilingInCents ?? CEILING_CAP_IN_CENTS / 2}
-          />
-        </div>
+        <CeilingBody result={ceiling} />
       </section>
     </div>
+  );
+}
+
+/**
+ * No consent is not zero. Without a statement that is ready, the measured half
+ * renders a sentence — never a R$ 0,00 hero that would read as "you did not
+ * bet this month", a claim nothing here can support.
+ */
+function unavailableReason(
+  syncStatus: BettingCeilingOverview['syncStatus'],
+): StatementUnavailableReason | null {
+  switch (syncStatus) {
+    case 'NO_CONSENT':
+      return { kind: 'NO_CONSENT' };
+    case 'SYNCING':
+      return { kind: 'SYNCING' };
+    case 'READY':
+      return null;
+    default:
+      return assertNever(syncStatus);
+  }
+}
+
+function CeilingBody({ result }: { readonly result: BackendResult<BettingCeilingOverview> }) {
+  if (!result.ok) {
+    return <StatementUnavailable reason={{ kind: 'FAILED', message: result.failure.message }} />;
+  }
+
+  const overview = result.value;
+  const reason = unavailableReason(overview.syncStatus);
+
+  if (reason !== null) {
+    return <StatementUnavailable reason={reason} />;
+  }
+
+  const rateLabel = toRateLabel(overview.annualRatePercent);
+
+  return (
+    <>
+      {overview.current === null ? (
+        <NoGoalCard />
+      ) : (
+        <CurrentCycleCard
+          cycle={toCurrentCycleRow(overview.current)}
+          daysRemaining={overview.month.daysRemaining}
+          nextMonthLabel={toMonthName(overview.month.nextMonthKey)}
+          rateLabel={rateLabel}
+          scheduled={toScheduledCeiling(overview.scheduled)}
+        />
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Meses anteriores</CardTitle>
+            <CardDescription>
+              Como cada mês fechado ficou em relação ao teto que valia nele.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GoalCycleList cycles={overview.cycles.map(toCycleRow)} />
+          </CardContent>
+        </Card>
+
+        <CeilingSimulator model={toSimulatorModel(overview)} rateLabel={rateLabel} />
+      </div>
+    </>
   );
 }
 

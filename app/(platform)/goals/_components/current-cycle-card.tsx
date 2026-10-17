@@ -6,19 +6,19 @@ import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress';
 import { formatBRL } from '@shared/ui/money-text';
 
-import { FIXED_INCOME_ANNUAL_RATE } from '../../dashboard/_mock-snapshot';
-import { toYieldEquivalentInCents } from '../../transactions/_ledger-view';
-import type { GoalCycle } from '../_goals-view';
+import type { CurrentCycleRow, ScheduledCeiling } from '../_ceiling-view';
 import { CycleStatusBadge } from './cycle-status-badge';
 
 const FULL_BAR = 100;
 
-const ratePercent = (FIXED_INCOME_ANNUAL_RATE * 100).toFixed(1).replace('.', ',');
-
 type CurrentCycleCardProps = {
-  readonly cycle: GoalCycle;
+  readonly cycle: CurrentCycleRow;
   readonly daysRemaining: number;
   readonly nextMonthLabel: string;
+  /** "9,3" — the rate `awareness` used for the reframing, stated beside it. */
+  readonly rateLabel: string;
+  /** A change the user chose that starts next month, if any. */
+  readonly scheduled: ScheduledCeiling | null;
 };
 
 /**
@@ -33,6 +33,8 @@ export function CurrentCycleCard({
   cycle,
   daysRemaining,
   nextMonthLabel,
+  rateLabel,
+  scheduled,
 }: CurrentCycleCardProps) {
   const isOverCeiling = cycle.marginInCents < 0;
 
@@ -74,18 +76,28 @@ export function CurrentCycleCard({
             {describeStanding(cycle, daysRemaining, nextMonthLabel)}
           </p>
 
+          {scheduled === null ? null : (
+            <p className="text-sm text-muted-foreground">
+              A partir de {scheduled.monthName}, o teto passa a ser{' '}
+              <span className="text-foreground">{formatBRL(scheduled.ceilingInCents)}</span>, como
+              você escolheu. Este mês continua medido pelo teto com que começou.
+            </p>
+          )}
+
           {/* The destination is the user's own words and the other half of the goal
               the module describes. It is a statement of intent, never a balance:
               the platform reads transactions, it does not move money, and no line
               here may leave somebody thinking it did. */}
-          <p className="text-xs text-muted-foreground">
-            Você definiu esta meta para{' '}
-            <span className="text-foreground">{cycle.destination}</span>. Guardar o valor é com
-            você — a plataforma só mostra o que já aconteceu.
-          </p>
+          {cycle.destination === null ? null : (
+            <p className="text-xs text-muted-foreground">
+              Você definiu esta meta para{' '}
+              <span className="text-foreground">{cycle.destination}</span>. Guardar o valor é com
+              você — a plataforma só mostra o que já aconteceu.
+            </p>
+          )}
         </div>
 
-        <CeilingReframing cycle={cycle} />
+        <CeilingReframing cycle={cycle} rateLabel={rateLabel} />
       </CardContent>
     </Card>
   );
@@ -94,12 +106,19 @@ export function CurrentCycleCard({
 /**
  * The same amount seen as what it could become, which is the reframing the whole
  * product is built on. Which amount depends on where the month stands: what has
- * already passed the ceiling, or what is still inside it.
+ * already passed the ceiling, or what is still inside it. Both figures and the
+ * rate are `awareness`'s, sent with the cycle.
  */
-function CeilingReframing({ cycle }: { readonly cycle: GoalCycle }) {
+function CeilingReframing({
+  cycle,
+  rateLabel,
+}: {
+  readonly cycle: CurrentCycleRow;
+  readonly rateLabel: string;
+}) {
   const isOverCeiling = cycle.marginInCents < 0;
   const amountInCents = Math.abs(cycle.marginInCents);
-  const yieldInCents = toYieldEquivalentInCents(amountInCents, FIXED_INCOME_ANNUAL_RATE);
+  const yieldInCents = cycle.marginYieldEquivalentInCents;
 
   return (
     <div className="space-y-2 rounded-lg bg-muted p-4">
@@ -112,7 +131,7 @@ function CeilingReframing({ cycle }: { readonly cycle: GoalCycle }) {
         {formatBRL(yieldInCents)}
       </p>
       <p className="text-xs text-muted-foreground">
-        {formatBRL(amountInCents)} a {ratePercent}% ao ano — um rendimento de{' '}
+        {formatBRL(amountInCents)} a {rateLabel}% ao ano — um rendimento de{' '}
         {formatBRL(yieldInCents - amountInCents)}. Não é uma garantia de retorno.
       </p>
       <Button asChild variant="outline" size="sm" className="h-9 w-full">
@@ -131,7 +150,7 @@ function CeilingReframing({ cycle }: { readonly cycle: GoalCycle }) {
  * same way a broken streak does, and nothing here scolds the reader for it.
  */
 function describeStanding(
-  cycle: GoalCycle,
+  cycle: CurrentCycleRow,
   daysRemaining: number,
   nextMonthLabel: string,
 ): string {

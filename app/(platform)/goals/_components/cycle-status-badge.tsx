@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { assertNever } from '@shared/domain/assert-never';
 
-import type { CycleStatus } from '../_goals-view';
+import type { CycleStatus } from '@modules/gamification';
 
 /**
  * What happened to one month's ceiling, in words first.

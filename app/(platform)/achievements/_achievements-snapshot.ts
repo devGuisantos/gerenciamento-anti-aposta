@@ -11,8 +11,7 @@
  */
 import { selectCycles, toMonthLabel, type MonthlyBetTotal } from '../goals/_goals-view';
 import { GOALS } from '../goals/_mock-goals';
-import { listSavingsGoals } from '../goals/_savings-goals-store';
-import { toSavingsGoalRows } from '../goals/_savings-goals-view';
+import { SAVINGS_GOAL_FIXTURE_ROWS } from '../goals/_mock-savings-goals';
 import { toLedgerRows } from '../transactions/_ledger-view';
 import { buildLedgerEntries } from '../transactions/_mock-ledger';
 import { toSupportSignal } from '../transactions/_support-signal';
@@ -76,7 +75,7 @@ export function readAchievementsSnapshot(reference: Date): AchievementsSnapshot 
     streaks,
     cycles: selectCycles(GOALS, MONTHS, reference).filter((cycle) => cycle.monthsAgo > 0),
     months: toClosedMonths(reference),
-    savings: toSavingsGoalRows(listSavingsGoals()),
+    savings: SAVINGS_GOAL_FIXTURE_ROWS,
   });
 
   return {

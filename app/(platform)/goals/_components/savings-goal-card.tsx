@@ -20,6 +20,21 @@ const FULL_BAR = 100;
  * not one of those — dressing it as a negative signal would be the app passing
  * judgement on a decision it knows nothing about.
  */
+/**
+ * The date is the first time the balance reached the target, as the backend
+ * recorded it. It is shown only while the goal still stands reached: after a
+ * withdrawal the card speaks about what is left, not about a past milestone.
+ */
+function describeProgress(goal: SavingsGoalRow): string {
+  if (!goal.isReached) {
+    return `${goal.progressPercentage}% do total — faltam ${formatBRL(goal.remainingInCents)}.`;
+  }
+
+  const when = goal.reachedAtLabel === null ? '' : ` Alcançada em ${goal.reachedAtLabel}.`;
+
+  return `${goal.progressPercentage}% do total. Você chegou onde queria.${when}`;
+}
+
 export function SavingsGoalCard({ goal }: { readonly goal: SavingsGoalRow }) {
   const { label: purposeLabel, icon: PurposeIcon } = GOAL_PURPOSE_DESCRIPTORS[goal.purpose];
 
@@ -69,11 +84,7 @@ export function SavingsGoalCard({ goal }: { readonly goal: SavingsGoalRow }) {
           aria-label={`Progresso de ${goal.title}`}
         />
 
-        <p className="text-xs text-muted-foreground">
-          {goal.isReached
-            ? `${goal.progressPercentage}% do total. Você chegou onde queria.`
-            : `${goal.progressPercentage}% do total — faltam ${formatBRL(goal.remainingInCents)}.`}
-        </p>
+        <p className="text-xs text-muted-foreground">{describeProgress(goal)}</p>
 
         <div className="flex gap-2">
           <RecordMovementDialog
@@ -91,9 +102,10 @@ export function SavingsGoalCard({ goal }: { readonly goal: SavingsGoalRow }) {
         </div>
 
         <MovementHistoryDialog
+          goalId={goal.id}
           goalTitle={goal.title}
           savedInCents={goal.savedInCents}
-          movements={goal.movements}
+          movementCount={goal.movementCount}
         />
       </CardContent>
     </Card>
