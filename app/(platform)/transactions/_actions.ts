@@ -7,7 +7,7 @@ import { overrideClassification, revertClassificationOverride } from '@modules/b
 import { readSessionToken, requireSession } from '@modules/identity';
 import { LEDGER_PERIODS, LEDGER_TYPES, listTransactions } from '@modules/open-finance';
 
-import { SEARCH_MAXIMUM_LENGTH } from './_statement-params';
+import { BOOKMAKER_ID_MAXIMUM_LENGTH, SEARCH_MAXIMUM_LENGTH } from './_statement-params';
 import {
   toClassificationPatch,
   toStatementRows,
@@ -44,6 +44,7 @@ const nextPageSchema = z.object({
     type: z.enum(LEDGER_TYPES),
     period: z.enum(LEDGER_PERIODS),
     accountId: z.uuid().nullable(),
+    bookmakerId: z.string().min(1).max(BOOKMAKER_ID_MAXIMUM_LENGTH).nullable(),
     search: z.string().max(SEARCH_MAXIMUM_LENGTH),
   }),
   cursor: z.string().min(1).max(CURSOR_MAXIMUM_LENGTH),

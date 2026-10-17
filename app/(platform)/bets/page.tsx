@@ -10,59 +10,44 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { summariseBetting, type BettingSummary } from '@modules/bet-detection';
+import { readSessionToken, requireSession } from '@modules/identity';
 import { formatBRL } from '@shared/ui/money-text';
+import { cn } from 'cn';
 
-import { FIXED_INCOME_ANNUAL_RATE } from '../dashboard/_mock-snapshot';
-import { toLedgerRows, toYieldEquivalentInCents } from '../transactions/_ledger-view';
-import { buildLedgerEntries } from '../transactions/_mock-ledger';
+import { StatementUnavailable } from '../transactions/_components/statement-unavailable';
 import {
   describeBusiestBand,
-  selectBetRows,
-  selectBookmakers,
-  summariseBetCost,
-  summariseHours,
-  summariseIncomeShare,
-  tallyDetections,
-  type IncomeShare,
+  toBetCostView,
+  toBookmakerViews,
+  toDetectionTallyViews,
+  toHourBucketViews,
+  type BetCostView,
 } from './_bets-view';
-import { selectEquivalences } from './_equivalences';
+import { toEquivalences, type Equivalence } from './_equivalences';
 import { toBetPeriod, type BetPeriodDays } from './_period';
 import { BookmakerRanking } from './_components/bookmaker-ranking';
 import { DetectionAudit } from './_components/detection-audit';
 import { HourPattern } from './_components/hour-pattern';
 import { PeriodSelector } from './_components/period-selector';
 import { SpendingEquivalences } from './_components/spending-equivalences';
-import { requireSession } from '@modules/identity';
 
 export const metadata: Metadata = {
   title: 'Apostas',
   description: 'As transações identificadas como casas de apostas e o custo acumulado delas.',
 };
 
-/** Same reason as the statement: the labels are relative to today. */
+/** One person's data, and the labels are relative to today. */
 export const dynamic = 'force-dynamic';
-
-const ratePercent = (FIXED_INCOME_ANNUAL_RATE * 100).toFixed(1).replace('.', ',');
 
 export default async function BetsPage({ searchParams }: PageProps<'/bets'>) {
   await requireSession();
+  const token = await readSessionToken();
   const period = toBetPeriod((await searchParams).period);
-  const reference = new Date();
-  /* The same entries the statement reads, so the two screens cannot disagree
-     about how much went to betting. */
-  /* One window drives every section, so the ranking, the tallies and the hours can
-     never describe a different stretch of time than the headline figure. */
-  const allRows = toLedgerRows(buildLedgerEntries(reference), reference).filter(
-    (row) => row.daysAgo < period,
-  );
-  const betRows = selectBetRows(allRows);
 
-  const cost = summariseBetCost(betRows);
-  const bookmakers = selectBookmakers(betRows);
-  const tallies = tallyDetections(betRows);
-  const hours = summariseHours(betRows);
-  const busiestBand = describeBusiestBand(hours, betRows.length);
-  const incomeShare = summariseIncomeShare(allRows, cost.totalInCents);
+  if (token === null) {
+    return null;
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -76,12 +61,55 @@ export default async function BetsPage({ searchParams }: PageProps<'/bets'>) {
 
       <PeriodSelector current={period} />
 
+      <BetsBody token={token} period={period} />
+    </div>
+  );
+}
+
+/**
+ * One backend call drives every section, so the ranking, the tallies and the
+ * hours can never describe a different stretch of time than the headline.
+ * No consent is not zero: it renders a sentence, never a R$ 0,00 hero.
+ */
+async function BetsBody({
+  token,
+  period,
+}: {
+  readonly token: string;
+  readonly period: BetPeriodDays;
+}) {
+  const summary = await summariseBetting(token, period);
+
+  if (!summary.ok) {
+    return <StatementUnavailable reason={{ kind: 'FAILED', message: summary.failure.message }} />;
+  }
+  if (summary.value.syncStatus !== 'READY') {
+    return <StatementUnavailable reason={{ kind: summary.value.syncStatus }} />;
+  }
+
+  return <BetsOverview summary={summary.value} period={period} />;
+}
+
+function BetsOverview({
+  summary,
+  period,
+}: {
+  readonly summary: BettingSummary;
+  readonly period: BetPeriodDays;
+}) {
+  const cost = toBetCostView(summary, period);
+
+  if (cost.transactionCount === 0) {
+    return <NoBetsFound period={period} />;
+  }
+
+  const hours = toHourBucketViews(summary.hourBuckets);
+
+  return (
+    <>
       <AccumulatedCost
-        totalInCents={cost.totalInCents}
-        transactionCount={cost.transactionCount}
-        bookmakerCount={cost.bookmakerCount}
-        sinceLabel={cost.sinceLabel}
-        incomeShare={incomeShare}
+        cost={cost}
+        equivalences={toEquivalences(summary.equivalences)}
         period={period}
       />
 
@@ -95,7 +123,7 @@ export default async function BetsPage({ searchParams }: PageProps<'/bets'>) {
             </CardDescription>
           </CardHeader>
           <CardContent className="px-0">
-            <BookmakerRanking bookmakers={bookmakers} />
+            <BookmakerRanking bookmakers={toBookmakerViews(summary.bookmakers, period)} />
           </CardContent>
         </Card>
 
@@ -107,7 +135,7 @@ export default async function BetsPage({ searchParams }: PageProps<'/bets'>) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <DetectionAudit tallies={tallies} />
+            <DetectionAudit tallies={toDetectionTallyViews(summary.detectionTallies)} />
           </CardContent>
         </Card>
       </div>
@@ -116,44 +144,58 @@ export default async function BetsPage({ searchParams }: PageProps<'/bets'>) {
         <CardHeader>
           <CardTitle>Em que horários</CardTitle>
           <CardDescription>
-            As apostas distribuídas pelo dia, em faixas de três horas.
+            As apostas distribuídas pelo dia, em faixas de três horas (horário de Brasília).
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <HourPattern buckets={hours} summary={busiestBand} />
+          <HourPattern
+            buckets={hours}
+            summary={describeBusiestBand(hours, cost.transactionCount)}
+          />
         </CardContent>
       </Card>
-    </div>
+    </>
+  );
+}
+
+/**
+ * A window we read and found nothing in. Stated as what was looked at, never
+ * as praise, and with no claim beyond the accounts the reader shared.
+ */
+function NoBetsFound({ period }: { readonly period: BetPeriodDays }) {
+  return (
+    <Card>
+      <CardContent className="space-y-2 py-10 text-center">
+        <p className="font-heading text-4xl font-semibold tracking-tight text-spend-none">
+          {formatBRL(0)}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Nenhuma transação com casas de apostas nas contas conectadas nos últimos {period} dias.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
 /**
  * The one hero figure here, and the reason the screen exists: not the month, but
- * everything the bookmakers have taken.
+ * everything the bookmakers have taken, net of what they gave back.
  *
  * It carries two reframings of the same number, because they answer different
  * questions. Fixed income answers "what would it have become"; the carousel
  * answers "what would it have bought". The second is the one people picture, so
- * it gets the width — but it sits below the figure, never instead of it.
+ * it gets the width — but it sits below the figure, never instead of it. Both
+ * are the backend's (`awareness`), never computed here.
  */
 function AccumulatedCost({
-  totalInCents,
-  transactionCount,
-  bookmakerCount,
-  sinceLabel,
-  incomeShare,
+  cost,
+  equivalences,
   period,
 }: {
-  readonly totalInCents: number;
-  readonly transactionCount: number;
-  readonly bookmakerCount: number;
-  readonly sinceLabel: string;
-  readonly incomeShare: IncomeShare | null;
+  readonly cost: BetCostView;
+  readonly equivalences: readonly Equivalence[];
   readonly period: BetPeriodDays;
 }) {
-  const yieldInCents = toYieldEquivalentInCents(totalInCents, FIXED_INCOME_ANNUAL_RATE);
-  const equivalences = selectEquivalences(totalInCents);
-
   return (
     <Card>
       <CardHeader className="border-b pb-4">
@@ -168,21 +210,35 @@ function AccumulatedCost({
       <CardContent className="space-y-8 py-2">
         <div className="grid gap-6 md:grid-cols-[1.1fr_0.9fr] md:items-center">
           <div className="space-y-2">
-            <p className="font-heading text-5xl font-semibold tracking-tight text-destructive sm:text-6xl">
-              {formatBRL(totalInCents)}
+            <p
+              className={cn(
+                'font-heading text-5xl font-semibold tracking-tight sm:text-6xl',
+                cost.totalInCents === 0 ? 'text-spend-none' : 'text-destructive',
+              )}
+            >
+              {formatBRL(cost.totalInCents)}
             </p>
             <p className="text-sm text-muted-foreground">
-              {transactionCount} transações em {bookmakerCount} casas de apostas, desde{' '}
-              {sinceLabel}.
+              {describeTransactions(cost.transactionCount)} em{' '}
+              {describeBookmakers(cost.bookmakerCount)}
+              {cost.sinceLabel === null ? '' : `, desde ${cost.sinceLabel}`}.
             </p>
-            {/* The same figure against what actually came in. An absolute number is
-                abstract; a share of income is the scale a person lives at. Both sides
-                are counted over the same days — see `summariseIncomeShare`. */}
-            {incomeShare ? (
+            {/* A refund gives the money back, so it was never foregone: the hero
+                is net, and this line says by how much. */}
+            {cost.refundCount > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Já descontados {formatBRL(cost.refundTotalInCents)} de{' '}
+                {cost.refundCount === 1 ? '1 estorno' : `${cost.refundCount} estornos`}.
+              </p>
+            ) : null}
+            {/* The same figure against what actually came in, over the same days.
+                An absolute number is abstract; a share of income is the scale a
+                person lives at. Not capped: above 100% is a fact about the window. */}
+            {cost.incomeShare ? (
               <p className="text-sm text-muted-foreground">
                 Equivale a{' '}
-                <span className="font-medium text-foreground">{incomeShare.percentage}%</span> de
-                tudo que entrou na conta no período ({formatBRL(incomeShare.incomeInCents)}).
+                <span className="font-medium text-foreground">{cost.incomeShare.percentage}%</span>{' '}
+                do que entrou como renda no período ({formatBRL(cost.incomeShare.incomeInCents)}).
               </p>
             ) : null}
           </div>
@@ -192,14 +248,15 @@ function AccumulatedCost({
               Esse mesmo valor, aplicado em renda fixa por 12 meses
             </p>
             <p className="font-heading text-2xl font-semibold tracking-tight">
-              {formatBRL(yieldInCents)}
+              {formatBRL(cost.yieldEquivalentInCents)}
             </p>
             <p className="text-xs text-muted-foreground">
-              Estimativa a {ratePercent}% ao ano — um rendimento de{' '}
-              {formatBRL(yieldInCents - totalInCents)}. Não é uma garantia de retorno.
+              Estimativa a {cost.ratePercentLabel}% ao ano — um rendimento de{' '}
+              {formatBRL(cost.yieldEquivalentInCents - cost.totalInCents)}. Não é uma garantia de
+              retorno.
             </p>
             <Button asChild variant="outline" size="sm" className="h-9 w-full">
-              <Link href="/transactions?filter=bets&period=all">
+              <Link href={cost.statementHref}>
                 Ver no extrato
                 <ArrowUpRight />
               </Link>
@@ -211,4 +268,12 @@ function AccumulatedCost({
       </CardContent>
     </Card>
   );
+}
+
+function describeTransactions(count: number): string {
+  return count === 1 ? '1 transação' : `${count} transações`;
+}
+
+function describeBookmakers(count: number): string {
+  return count === 1 ? '1 casa de apostas' : `${count} casas de apostas`;
 }

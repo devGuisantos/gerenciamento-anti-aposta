@@ -2,7 +2,7 @@
  * The statement's filters live in the URL, because the backend filters and
  * totals: a reload, a shared link and the back button all land on the same
  * slice. `filter` and `period` keep the values other screens already link with
- * (`?filter=bets&period=all`).
+ * (`?filter=bets&period=all`); `/bets` links one house's slice with `bookmaker`.
  *
  * An unknown value falls back to the default rather than erroring: a bad query
  * string is not worth a broken page. Pure, so the toolbar can build hrefs too.
@@ -20,16 +20,22 @@ const TYPE_PARAMS: Readonly<Record<string, LedgerType>> = {
 const PERIOD_PARAMS: Readonly<Record<string, LedgerPeriod>> = {
   '30d': 'LAST_30_DAYS',
   '90d': 'LAST_90_DAYS',
+  '180d': 'LAST_180_DAYS',
+  '360d': 'LAST_360_DAYS',
   all: 'ALL_TIME',
 };
 
 /** The backend's own bound on `q`; anything longer would be refused there. */
 export const SEARCH_MAXIMUM_LENGTH = 120;
 
+/** The backend's own bound on `bookmakerId` — the column that holds it. */
+export const BOOKMAKER_ID_MAXIMUM_LENGTH = 64;
+
 export const DEFAULT_FILTERS: StatementFilters = {
   type: 'ALL',
   period: 'LAST_30_DAYS',
   accountId: null,
+  bookmakerId: null,
   search: '',
 };
 
@@ -52,14 +58,24 @@ export function readStatementFilters(
   const type = TYPE_PARAMS[firstOf(params.filter) ?? ''];
   const period = PERIOD_PARAMS[firstOf(params.period) ?? ''];
   const account = firstOf(params.account);
+  const bookmaker = firstOf(params.bookmaker)?.trim() ?? '';
   const search = firstOf(params.q) ?? '';
 
   return {
     type: type ?? DEFAULT_FILTERS.type,
     period: period ?? DEFAULT_FILTERS.period,
     accountId: account !== undefined && knownAccountIds.includes(account) ? account : null,
+    bookmakerId: toBookmakerId(bookmaker),
     search: search.slice(0, SEARCH_MAXIMUM_LENGTH),
   };
+}
+
+/**
+ * Only its length is checked — the id is opaque. One the reader's history does
+ * not contain answers 404 on the backend, which the page states in words.
+ */
+function toBookmakerId(raw: string): string | null {
+  return raw === '' || raw.length > BOOKMAKER_ID_MAXIMUM_LENGTH ? null : raw;
 }
 
 /** Defaults are left out, so the plain screen keeps the plain URL. */
@@ -71,6 +87,7 @@ export function toStatementHref(filters: StatementFilters): string {
   if (type !== undefined) params.set('filter', type);
   if (filters.period !== DEFAULT_FILTERS.period && period !== undefined) params.set('period', period);
   if (filters.accountId !== null) params.set('account', filters.accountId);
+  if (filters.bookmakerId !== null) params.set('bookmaker', filters.bookmakerId);
   if (filters.search.trim() !== '') params.set('q', filters.search.trim());
 
   const query = params.toString();

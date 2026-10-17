@@ -37,7 +37,17 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export const LEDGER_TYPES = ['ALL', 'BETS', 'CREDITS', 'DEBITS'] as const;
 export type LedgerType = (typeof LEDGER_TYPES)[number];
 
-export const LEDGER_PERIODS = ['LAST_30_DAYS', 'LAST_90_DAYS', 'ALL_TIME'] as const;
+/**
+ * The 180- and 360-day windows exist so "Ver no extrato" on `/bets` opens the
+ * same slice the figure above it described.
+ */
+export const LEDGER_PERIODS = [
+  'LAST_30_DAYS',
+  'LAST_90_DAYS',
+  'LAST_180_DAYS',
+  'LAST_360_DAYS',
+  'ALL_TIME',
+] as const;
 export type LedgerPeriod = (typeof LEDGER_PERIODS)[number];
 
 const moneySchema = z.object({
@@ -107,6 +117,8 @@ export type LedgerQuery = {
   readonly type: LedgerType;
   readonly period: LedgerPeriod;
   readonly accountId: string | null;
+  /** One house's rows, refunds included — the id `GET /bets/summary` grouped them under. */
+  readonly bookmakerId: string | null;
   readonly search: string;
   /** Opaque, as the backend issued it. */
   readonly cursor: string | null;
@@ -122,6 +134,7 @@ function toLedgerSearchParams(query: LedgerQuery): string {
   });
 
   if (query.accountId !== null) params.set('accountId', query.accountId);
+  if (query.bookmakerId !== null) params.set('bookmakerId', query.bookmakerId);
   if (query.search.trim() !== '') params.set('q', query.search.trim());
   if (query.cursor !== null) params.set('cursor', query.cursor);
 

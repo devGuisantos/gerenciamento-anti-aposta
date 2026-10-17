@@ -1,7 +1,7 @@
 import { Separator } from '@/components/ui/separator';
 
 import { DETECTION_EXPLANATIONS, DETECTION_LABELS } from '../../transactions/_detection';
-import type { DetectionTally } from '../_bets-view';
+import type { DetectionTallyView } from '../_bets-view';
 
 /**
  * How each bet was caught, and by which policy.
@@ -11,7 +11,7 @@ import type { DetectionTally } from '../_bets-view';
  * without somewhere that shows what the classifier actually did. It is also the
  * honest place to say the keyword policy is the weak one.
  */
-export function DetectionAudit({ tallies }: { readonly tallies: readonly DetectionTally[] }) {
+export function DetectionAudit({ tallies }: { readonly tallies: readonly DetectionTallyView[] }) {
   return (
     <div className="space-y-4">
       <ul className="space-y-4">

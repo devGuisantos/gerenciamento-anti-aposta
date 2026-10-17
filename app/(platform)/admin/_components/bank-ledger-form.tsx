@@ -34,6 +34,10 @@ type Draft = {
   readonly type: EntryType;
   readonly merchantCategoryCode: string;
   readonly payeeDocument: string;
+  /** "0" is now. Lets one console fill every window `/bets` offers. */
+  readonly daysAgo: string;
+  /** São Paulo hour, "0"–"23"; empty keeps the current time of day. */
+  readonly hour: string;
 };
 
 const DIRECTION_COPY: Readonly<Record<DemoMovementKind, string>> = {
@@ -69,6 +73,8 @@ function draftFrom(movement: DemoMovement, accounts: readonly BankAccount[]): Dr
     type: movement.type,
     merchantCategoryCode: movement.merchantCategoryCode === null ? '' : String(movement.merchantCategoryCode),
     payeeDocument: movement.payeeDocument ?? '',
+    daysAgo: '0',
+    hour: '',
   };
 }
 
@@ -147,7 +153,13 @@ export function BankLedgerForm({
                 size="sm"
                 className="h-9"
                 title={movement.expectation}
-                onClick={() => setDraft(draftFrom(movement, accounts))}
+                onClick={() =>
+                  setDraft((current) => ({
+                    ...draftFrom(movement, accounts),
+                    daysAgo: current.daysAgo,
+                    hour: current.hour,
+                  }))
+                }
               >
                 {movement.label}
               </Button>
@@ -218,6 +230,23 @@ export function BankLedgerForm({
           onChange={(payeeDocument) => update({ payeeDocument })}
           inputMode="numeric"
           pattern="\d{11}|\d{14}"
+        />
+        <TextField
+          label="Há quantos dias"
+          hint="0 é agora. Até 364: o anti-aposta lê os últimos 365 dias do banco."
+          value={draft.daysAgo}
+          onChange={(daysAgo) => update({ daysAgo })}
+          required
+          inputMode="numeric"
+          pattern="\d{1,3}"
+        />
+        <TextField
+          label="Hora (opcional)"
+          hint="De 0 a 23, horário de Brasília. Em branco, usa a hora atual."
+          value={draft.hour}
+          onChange={(hour) => update({ hour })}
+          inputMode="numeric"
+          pattern="\d{1,2}"
         />
 
         <div className="space-y-3 sm:col-span-2">

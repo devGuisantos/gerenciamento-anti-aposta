@@ -32,7 +32,20 @@ const TRANSPORT_HEADERS =
     ? [{ key: "Strict-Transport-Security", value: `max-age=${ONE_YEAR_IN_SECONDS}; includeSubDomains` }]
     : [];
 
+/**
+ * How long the browser reuses a server-rendered screen it already has, so
+ * flipping between "30 dias" and "90 dias" does not ask the backend again each
+ * time. The copy lives only in that person's browser — nothing derived from
+ * their finances is cached on the server. New movements still show at once:
+ * the notification stream's `router.refresh()`, every Server Action's
+ * `refresh()` and the session cookie writes all clear it.
+ */
+const CLIENT_CACHE_DYNAMIC_SECONDS = 30;
+
 const nextConfig: NextConfig = {
+  experimental: {
+    staleTimes: { dynamic: CLIENT_CACHE_DYNAMIC_SECONDS },
+  },
   async headers() {
     return [{ source: "/:path*", headers: [...SECURITY_HEADERS, ...TRANSPORT_HEADERS] }];
   },

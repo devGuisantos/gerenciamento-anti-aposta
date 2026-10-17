@@ -35,5 +35,8 @@ The policies run on **backend-anti-aposta**; this module is a client of its API 
 `infrastructure/classification-override-api.ts` carries the person's correction:
 `overrideClassification` (`POST /transactions/{id}/classification-override`, `NOT_A_BET`) and
 `revertClassificationOverride` (`DELETE` on the same path). The override outranks the policy chain
-for that transaction until the same person undoes it. Server-only, like `identity`: a Client
-Component imports types from here, never values.
+for that transaction until the same person undoes it.
+`infrastructure/betting-summary-api.ts` reads `GET /bets/summary?days=` (30, 90, 180 or 360 — the
+backend refuses any other) for `/bets`: the net cost, the reframing, the income share, the
+equivalences, the houses, the tallies and the hour bands, all computed there. Server-only, like
+`identity`: a Client Component imports types from here, never values.

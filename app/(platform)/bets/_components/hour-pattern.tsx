@@ -3,10 +3,10 @@
 import { useEntrance } from '@/hooks/use-entrance';
 import { cn } from 'cn';
 
-import type { HourBucket } from '../_bets-view';
+import type { HourBucketView } from '../_bets-view';
 
 type HourPatternProps = {
-  readonly buckets: readonly HourBucket[];
+  readonly buckets: readonly HourBucketView[];
   readonly summary: string | null;
 };
 

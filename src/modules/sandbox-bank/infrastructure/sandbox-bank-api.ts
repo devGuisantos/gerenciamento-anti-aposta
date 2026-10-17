@@ -76,6 +76,8 @@ export type LedgerEntryRequest = {
   readonly type: EntryType;
   readonly merchantCategoryCode: number | null;
   readonly payeeDocument: string | null;
+  /** When the bank books it; the bank's clock when absent. For demos of older history. */
+  readonly bookedAt?: string;
 };
 
 const ledgerEntrySchema = z.object({
