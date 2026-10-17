@@ -1,21 +1,13 @@
 import type { Metadata } from 'next';
 
-import { selectCycles, toMonthLabel, type MonthlyBetTotal } from '../goals/_goals-view';
-import { GOALS } from '../goals/_mock-goals';
-import { listSavingsGoals } from '../goals/_savings-goals-store';
-import { toSavingsGoalRows } from '../goals/_savings-goals-view';
 import { SupportCard } from '../transactions/_components/support-card';
-import { toLedgerRows } from '../transactions/_ledger-view';
-import { buildLedgerEntries } from '../transactions/_mock-ledger';
-import { toSupportSignal } from '../transactions/_support-signal';
-import { MONTHLY_HISTORY } from '../transactions/insights/_mock-monthly-history';
-import { selectNextMilestone, toBadgeAwards, type ClosedMonth } from './_badges-view';
+import { readAchievementsSnapshot, SUPPORT_SIGNAL } from './_achievements-snapshot';
+import { selectNextMilestone } from './_badges-view';
 import { BadgeCollection } from './_components/badge-collection';
 import { NextMilestoneCard } from './_components/next-milestone-card';
 import { StreakCalendar } from './_components/streak-calendar';
 import { StreakHero } from './_components/streak-hero';
 import { StreakRecordList } from './_components/streak-record-list';
-import { toBetDays, toDataWindow, toStreakDays, toStreakRecord } from './_streak-view';
 import { requireSession } from '@modules/identity';
 
 export const metadata: Metadata = {
@@ -30,62 +22,9 @@ export const metadata: Metadata = {
  */
 export const dynamic = 'force-dynamic';
 
-/** Two months of squares: long enough to show a pattern, short enough to read on a phone. */
-const CALENDAR_DAY_COUNT = 60;
-
-/* The same monthly totals the charts and the goal screen read, so a month that is
-   inside the ceiling here cannot be a different figure there. */
-const MONTHS: readonly MonthlyBetTotal[] = MONTHLY_HISTORY.map((month) => ({
-  monthsAgo: month.monthsAgo,
-  betsInCents: month.bets,
-}));
-
-/** How far back the statement data goes, which bounds every streak on the screen. */
-const OLDEST_MONTHS_AGO = Math.max(...MONTHLY_HISTORY.map((month) => month.monthsAgo));
-
-/**
- * The same signal `/transactions/insights` renders, from the same totals and under
- * the same dismissal — one offer, dismissed once.
- *
- * It matters more here than anywhere else in the app. The product rule is that
- * sustained betting surfaces support resources *instead of* more gamification, and
- * this is the gamification screen: the offer goes above everything, and the nudge
- * toward the next milestone is withheld while it stands.
- */
-const SUPPORT_SIGNAL = toSupportSignal(MONTHLY_HISTORY.map((month) => month.bets));
-
 export default async function AchievementsPage() {
   await requireSession();
-  const reference = new Date();
-
-  /* Streaks are derived from the statement, never stored. The ledger is the same
-     one `/transactions` renders, so a day marked bet-free here is a day with no
-     betting row there. */
-  const rows = toLedgerRows(buildLedgerEntries(reference), reference);
-  const betDays = toBetDays(rows, reference);
-  const dataWindow = toDataWindow(OLDEST_MONTHS_AGO, reference);
-  const streaks = toStreakRecord(betDays, dataWindow, reference);
-  const days = toStreakDays(betDays, CALENDAR_DAY_COUNT, dataWindow, reference);
-
-  /* Closed months only, everywhere it matters: the open month is half a month, and
-     a badge awarded on it could be undone by its last ten days. */
-  const closedCycles = selectCycles(GOALS, MONTHS, reference).filter(
-    (cycle) => cycle.monthsAgo > 0,
-  );
-  const closedMonths: readonly ClosedMonth[] = MONTHLY_HISTORY.filter(
-    (month) => month.monthsAgo > 0,
-  ).map((month) => ({
-    monthsAgo: month.monthsAgo,
-    monthLabel: toMonthLabel(month.monthsAgo, reference),
-    betsInCents: month.bets,
-  }));
-
-  const awards = toBadgeAwards({
-    streaks,
-    cycles: closedCycles,
-    months: closedMonths,
-    savings: toSavingsGoalRows(listSavingsGoals()),
-  });
+  const { streaks, calendarDays, awards } = readAchievementsSnapshot(new Date());
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -104,7 +43,7 @@ export default async function AchievementsPage() {
 
       <StreakHero record={streaks} />
 
-      <StreakCalendar days={days} />
+      <StreakCalendar days={calendarDays} />
 
       <div className={`grid gap-4 ${SUPPORT_SIGNAL.shouldOffer ? '' : 'lg:grid-cols-2'}`}>
         <StreakRecordList record={streaks} />

@@ -271,14 +271,35 @@ export function toBadgeAwards(inputs: BadgeInputs): readonly BadgeAward[] {
   );
 }
 
-export function toBadgeFamilyGroups(
+export function toBadgeFamilyGroup(
   awards: readonly BadgeAward[],
-): readonly BadgeFamilyGroup[] {
-  return BADGE_FAMILY_ORDER.map((family) => ({
+  family: BadgeFamily,
+): BadgeFamilyGroup {
+  return {
     family,
     descriptor: BADGE_FAMILY_DESCRIPTORS[family],
     awards: awards.filter((award) => award.definition.family === family),
-  }));
+  };
+}
+
+export function toBadgeFamilyGroups(
+  awards: readonly BadgeAward[],
+): readonly BadgeFamilyGroup[] {
+  return BADGE_FAMILY_ORDER.map((family) => toBadgeFamilyGroup(awards, family));
+}
+
+/**
+ * The badge a family's folder leads with.
+ *
+ * The highest earned threshold, which is also the latest earned: a family counts
+ * one figure that only climbs towards its thresholds, so the thirty-day badge can
+ * never arrive before the seven-day one. With nothing earned yet it is the first
+ * badge of the family, shown with its distance like any other unearned one.
+ * `null` only for a family the catalogue holds no badge for.
+ */
+export function selectFeaturedAward(group: BadgeFamilyGroup): BadgeAward | null {
+  const earned = group.awards.filter((award) => award.status === 'EARNED');
+  return earned.at(-1) ?? group.awards[0] ?? null;
 }
 
 export function countEarnedBadges(awards: readonly BadgeAward[]): number {
