@@ -22,3 +22,14 @@ export {
   type CycleStatus,
   type SimulationStep,
 } from './infrastructure/betting-ceiling-api';
+export {
+  BADGE_FAMILIES,
+  describeAchievements,
+  type AchievementsOverview,
+  type AttainmentEvidence,
+  type BadgeFamily,
+  type BadgeStanding,
+  type BetDay,
+  type BetFreeStretch,
+  type StreakOverview,
+} from './infrastructure/achievements-api';

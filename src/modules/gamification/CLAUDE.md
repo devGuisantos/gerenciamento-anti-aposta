@@ -22,20 +22,21 @@ The SDT mapping is explicit, and code comments should say _why_ a mechanic exist
   guilt-tripping notification.
 - Badges mark genuine milestones, never participation. An achievement the user did not earn makes
   every other one worthless.
-- Consumes `BetTransactionDetected` (breaks streaks) and the daily clock tick (extends them) —
-  through events, never by reading another module's tables.
-- Streak arithmetic uses the injected `Clock` and `America/Sao_Paulo` day boundaries, not UTC
-  midnight, or users lose a day for no reason.
+- The streak is derived from the bet days on every read, never kept as a counter — a counter beside
+  the transactions it counts can disagree with them. Day boundaries are `America/Sao_Paulo`, not
+  UTC midnight, or users lose a day for no reason.
 
 - **The celebration belongs to the event, never to a screen.** `BadgeAwarded` is what the confetti
   and the modal hang off, so they fire once, when it happened. A screen that celebrated on open
   would be applauding a visit — see `/achievements` in `app/(platform)/CLAUDE.md`.
 
-Emits `BadgeAwarded`, `StreakBroken`, `GoalReached`.
+Emits `BadgesAwarded` (one per evaluation) and `SavingsGoalReached`. `StreakBroken` is not emitted
+yet.
 
 ## In this repository
 
-The rules run on **backend-anti-aposta** (contract: `docs/features/goals.md` there); this module is a
+The rules run on **backend-anti-aposta** (contracts: `docs/features/goals.md` and
+`docs/features/achievements.md` there); this module is a
 client of its API and holds no rule. Server-only, like the others: a Client Component imports types
 from here, never values — which is why the purpose list the `<select>` needs lives in
 `app/(platform)/goals/_savings-goal.ts`, typed against `GoalPurpose` from here.
@@ -46,3 +47,6 @@ from here, never values — which is why the purpose list the `<select>` needs l
 - `infrastructure/betting-ceiling-api.ts` — `describeBettingCeiling` (cycles, the open month's
   reframing and every simulator stop, computed there) and `setBettingCeiling` (`PUT`; the month under
   way keeps its ceiling, so the answer says from which month the value governs).
+- `infrastructure/achievements-api.ts` — `describeAchievements`: the streak record (São Paulo day
+  keys, lower bounds marked) and all eleven badges with their status, figure and evidence. The read
+  also awards what fell due; the celebration arrives as `BADGE_AWARDED` on the stream, never here.

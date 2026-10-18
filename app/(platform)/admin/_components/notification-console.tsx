@@ -21,11 +21,10 @@ import { sendDemoNotificationAction } from '../_actions';
 /**
  * One badge per family, so a demo can show each mark and both kinds of evidence.
  *
- * `badgeId` is a real id from `achievements/_badge.ts`: the dialog reads the mark
- * and the criterion from the catalogue, and this payload carries only what the
- * catalogue cannot know — which badge, and what the user actually did to satisfy
- * it. The evidence lines below are written to match what
- * `_badges-view.ts` produces for real.
+ * `badgeId` is a real id from the backend's catalogue: the dialog draws the
+ * family's mark from it, and the title and the evidence line come from the
+ * payload — the same fields `gamification` fills when it awards a badge for
+ * real. The lines below are written to read like the ones it produces.
  */
 const BADGE_PRESETS = [
   {

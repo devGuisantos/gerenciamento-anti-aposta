@@ -1,7 +1,8 @@
 /**
- * The shapes the Conquistas screen renders. They mirror what `gamification`'s
- * `Streak` aggregate will expose, so replacing the fixture is a change of source,
- * not of shape.
+ * The shapes the Conquistas screen renders, built from `gamification`'s
+ * `StreakRecord` on the backend by `_achievements-view.ts`. The dashboard still
+ * builds the same shapes from its fixture (`_streak-view.ts`) until it reads the
+ * backend too.
  *
  * A streak here is a stretch of **whole days with no detected bet**, and every
  * figure on this screen is derived from transactions the platform already read.
@@ -53,6 +54,11 @@ export type BetFreeStreak = {
  */
 export type CurrentStreak = {
   readonly days: number;
+  /**
+   * No bet anywhere in the window we hold: the count is the least we can claim,
+   * and the copy says "pelo menos" — never a zero, and never an exact figure.
+   */
+  readonly startsBeforeWindow: boolean;
   /** Why the count reads zero, where it does: a bet was detected today. */
   readonly hasBetToday: boolean;
   /** The most recent bet in the window, or `null` when it holds none. */
@@ -63,8 +69,10 @@ export type StreakRecord = {
   readonly current: CurrentStreak;
   /** The longest stretch in the window, `null` when every day in it had a bet. */
   readonly longest: BetFreeStreak | null;
-  /** Closed stretches, longest first. The one under way is not among them. */
+  /** The longest closed stretches, longest first. The one under way is not among them. */
   readonly closedStreaks: readonly BetFreeStreak[];
+  /** All of them — `closedStreaks` may hold only the longest few. */
+  readonly closedStreakCount: number;
   readonly betFreeDayCount: number;
   readonly betDayCount: number;
   /** Days of statement data this record was counted over. */

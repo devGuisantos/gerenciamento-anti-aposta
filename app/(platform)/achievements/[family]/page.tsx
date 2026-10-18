@@ -5,13 +5,14 @@ import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 
+import { StatementUnavailable } from '../../transactions/_components/statement-unavailable';
 import { SupportCard } from '../../transactions/_components/support-card';
-import { readAchievementsSnapshot, SUPPORT_SIGNAL } from '../_achievements-snapshot';
+import { readAchievementsSnapshot } from '../_achievements-snapshot';
 import { BADGE_FAMILY_DESCRIPTORS, describeEvidence, findBadgeFamilyBySlug } from '../_badge';
 import { countEarnedBadges, toBadgeFamilyGroup } from '../_badges-view';
 import { BadgeDialog } from '../_components/badge-dialog';
 import { NoScoreNote } from '../_components/no-score-note';
-import { requireSession } from '@modules/identity';
+import { readSessionToken, requireSession } from '@modules/identity';
 
 type FamilyPageProps = {
   readonly params: Promise<{ readonly family: string }>;
@@ -40,8 +41,23 @@ export default async function BadgeFamilyPage({ params }: FamilyPageProps) {
   const family = findBadgeFamilyBySlug((await params).family);
   if (family === null) notFound();
 
-  const { awards } = readAchievementsSnapshot(new Date());
-  const group = toBadgeFamilyGroup(awards, family);
+  const token = await readSessionToken();
+
+  if (token === null) {
+    return null;
+  }
+
+  const snapshot = await readAchievementsSnapshot(token);
+
+  if (snapshot.kind === 'FAILED') {
+    return (
+      <div className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <StatementUnavailable reason={{ kind: 'FAILED', message: snapshot.message }} />
+      </div>
+    );
+  }
+
+  const group = toBadgeFamilyGroup(snapshot.awards, family);
   const { descriptor } = group;
   const earnedCount = countEarnedBadges(group.awards);
 
@@ -55,7 +71,7 @@ export default async function BadgeFamilyPage({ params }: FamilyPageProps) {
       </Button>
 
       {/* The offer outranks every gamification screen, this one included. */}
-      <SupportCard signal={SUPPORT_SIGNAL} />
+      {snapshot.supportSignal === null ? null : <SupportCard signal={snapshot.supportSignal} />}
 
       <div className="flex items-start gap-4">
         <span

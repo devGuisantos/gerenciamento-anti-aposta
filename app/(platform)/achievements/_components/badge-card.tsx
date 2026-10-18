@@ -51,7 +51,7 @@ export function BadgeCard({ award }: { readonly award: BadgeAward }) {
 
           <p className="text-xs text-muted-foreground">{definition.criterion}</p>
 
-          {isEarned ? null : (
+          {isEarned || progressPercentage === null ? null : (
             <Progress
               value={progressPercentage}
               aria-label={`Progresso para a conquista ${definition.title}: ${detail}`}

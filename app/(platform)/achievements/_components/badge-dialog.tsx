@@ -116,7 +116,9 @@ function BadgeBody({ award }: { readonly award: BadgeAward }) {
           <p className="text-sm">{detail}</p>
         </div>
 
-        {isEarned ? null : (
+        {/* Nothing to draw while the figure cannot be measured: an empty bar would
+            read as a measured zero, which is the one thing it is not. */}
+        {isEarned || progressPercentage === null || currentValue === null ? null : (
           <div className="space-y-2">
             <Progress
               /* Grown from zero on mount, which the primitive's own

@@ -41,6 +41,11 @@ export function StreakHero({ record }: { readonly record: StreakRecord }) {
       <CardContent className="grid gap-6 py-2 md:grid-cols-[1.1fr_0.9fr] md:items-center">
         <div className="space-y-3">
           <p className="flex flex-wrap items-baseline gap-x-2">
+            {/* A window with no bet at all: the stretch began before the data we
+                hold, so the figure is the least we can claim, never the whole. */}
+            {current.startsBeforeWindow ? (
+              <span className="text-lg text-muted-foreground">pelo menos</span>
+            ) : null}
             <span className="font-heading text-5xl font-semibold tracking-tight sm:text-6xl">
               {current.days}
             </span>
@@ -76,7 +81,7 @@ export function StreakHero({ record }: { readonly record: StreakRecord }) {
 
 /** The record beside the current count, which is what makes one day mean something. */
 function StreakRecordPanel({ record }: { readonly record: StreakRecord }) {
-  const { longest, closedStreaks, betFreeDayCount, windowDayCount } = record;
+  const { longest, closedStreakCount, betFreeDayCount, windowDayCount } = record;
 
   return (
     <div className="space-y-2 rounded-lg bg-muted p-4">
@@ -100,9 +105,9 @@ function StreakRecordPanel({ record }: { readonly record: StreakRecord }) {
       )}
 
       <p className="text-xs text-muted-foreground">
-        {closedStreaks.length === 1
+        {closedStreakCount === 1
           ? '1 sequência registrada'
-          : `${closedStreaks.length} sequências registradas`}{' '}
+          : `${closedStreakCount} sequências registradas`}{' '}
         · {betFreeDayCount} de {windowDayCount} dias sem apostas
       </p>
 
@@ -128,7 +133,7 @@ function describeStanding(record: StreakRecord): string {
   const { current } = record;
 
   if (current.lastBreak === null) {
-    return `Nenhuma aposta foi identificada em todo o período que lemos. O dia de hoje entra na conta quando terminar.`;
+    return `Nenhuma aposta foi identificada em todo o período que lemos, então a sequência começou antes dele e o número é o mínimo que podemos afirmar. O dia de hoje entra na conta quando terminar.`;
   }
 
   if (current.hasBetToday) {
