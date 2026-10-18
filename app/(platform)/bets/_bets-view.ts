@@ -16,7 +16,7 @@ import type {
 } from '@modules/bet-detection';
 import type { LedgerPeriod } from '@modules/open-finance';
 
-import type { DetectionConfidence, DetectionReason } from '../transactions/_ledger-entry';
+import type { DetectionConfidence, DetectionReason } from '../transactions/_detection';
 import { DEFAULT_FILTERS, toStatementHref } from '../transactions/_statement-params';
 
 const TIME_ZONE = 'America/Sao_Paulo';
@@ -119,6 +119,15 @@ export function toStatementHrefForWindow(
 
 function toPercentLabel(percent: number): string {
   return percent.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+}
+
+/** Shared with the dashboard hero, so both screens word the same count the same way. */
+export function describeTransactions(count: number): string {
+  return count === 1 ? '1 transação' : `${count} transações`;
+}
+
+export function describeBookmakers(count: number): string {
+  return count === 1 ? '1 casa de apostas' : `${count} casas de apostas`;
 }
 
 export function toBetCostView(summary: BettingSummary, days: BetWindowInDays): BetCostView {

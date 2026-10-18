@@ -87,14 +87,12 @@ decision rather than a styling one — see `/achievements` below, and
 
 ## Data
 
-Screens currently read `_mock-snapshot.ts` fixtures: **integer cents**, matching the `Money` type
-that will replace them. Each file says which use case supersedes it. Rules while the modules are
-being built:
+Every screen here reads backend-anti-aposta through `@modules/*`; **no fixtures remain**. Money
+arrives as `{ amountInCents, currency }` and the view files flatten it to **integer cents**.
 
-- Fixtures stay display data. The moment a fixture needs a calculation, that calculation belongs in
-  a domain service, not here.
-- Keep the numbers internally consistent — the yield figure must actually be the spend times the
-  rate. An inconsistent demo is worse than an empty one.
+- **Every figure is the backend's.** A view file labels, words and sizes bars; it never sums,
+  derives or estimates a number another screen also shows. The moment one needs a calculation, it
+  belongs in a backend use case.
 - Format money only through `MoneyText` / `formatBRL` from `@shared/ui/money-text`.
 
 ## `/transactions` — the statement screen
@@ -113,9 +111,7 @@ complain about. It reads **real backend data**: `GET /transactions` and `GET /ac
   `_statement-labels.ts` holds the Portuguese for the backend's enums (category, method).
 - `_actions.ts` holds the three Server Actions: the next page, the correction and its undo.
 - `_components/` holds the interactive leaves.
-- `_mock-ledger.ts`, `_ledger-entry.ts`, `_ledger-view.ts` and `_accounts.ts` are **no longer read
-  by this screen** — they stay only for the dashboard, which still reads fixtures, and retire
-  with it.
+- `_detection.ts` holds the detection types and their Portuguese; `_accounts.ts` names an account.
 
 Rules this screen establishes:
 
@@ -164,8 +160,6 @@ Rules this screen establishes:
   which would otherwise answer 404 for the whole page.
 - **Client components import types from the modules, never values.** The modules are server-only
   (`next/headers`); one value import from a file the browser loads breaks the route at build.
-- **The remaining fixtures agree per calendar month, not per rolling window** — the rule the
-  dashboard still depends on until it reads the backend.
 - `SelectValue` needs **explicit children**. Radix fills it from the selected item, and items only
   register once the portal opens — leave it empty and the trigger renders blank on the server.
 
@@ -173,8 +167,9 @@ Rules this screen establishes:
 
 The first screen in this group that read **real backend data** rather than a fixture: the consent,
 the shared accounts and the newest statement rows all come from backend-anti-aposta. `/transactions`
-, `/transactions/insights`, `/bets`, `/goals` and `/achievements` now do too; the dashboard still
-reads fixtures, which is why the header's "Dados simulados" stays.
+, `/transactions/insights`, `/bets`, `/goals`, `/achievements` and the dashboard now do too. The
+header's "Dados simulados" stays regardless: the DataHolder is still the simulated bank, so every
+figure is real arithmetic over synthetic movements.
 
 - **One card per state, decided by the backend's status.** `AUTHORISED` shows `ConsentCard`
   (accounts, last sync, "Sincronizar", "Revogar"); anything else shows `ConnectCard`, which says
@@ -252,9 +247,6 @@ Both halves read `@modules/gamification` (backend `gamification`, contract in
 `_actions.ts` holds the four Server Actions (create, record, history page, set ceiling), each opening
 with `requireSession()`. **Every figure is the backend's** — the views turn month keys into labels and
 money objects into cents, and decide nothing.
-
-`_goal.ts`, `_mock-goals.ts` and `_goals-view.ts` are **no longer read by this screen** — they stay
-only for the dashboard card, and retire with it.
 
 ## `/goals` — savings goals
 
@@ -384,9 +376,8 @@ the badges are awarded there and never revoked, and reading the screen awards wh
 since the last look. The views label and word; they decide nothing.
 
 - `_streak.ts` is the streak shape the components render. `_achievements-view.ts` builds it from the
-  backend's São Paulo day keys (labels, distances from today). `_streak-view.ts` still derives the
-  same shape from the fixture ledger, **for the dashboard only**, and keeps the shared wording
-  (`describeDays`, `describeStreakLength`).
+  backend's São Paulo day keys (labels, distances from today). `_streak-view.ts` holds the wording
+  the dashboard's streak tile shares (`describeDays`, `describeStreakLength`).
 - `_badge.ts` holds how each family is presented — label, mark, unit, where to check the figure,
   measured or self-reported — and carries the module's rules as comments. The catalogue itself
   (ids, thresholds, titles, criteria) is the backend's. `_badges-view.ts` words each badge's
@@ -412,7 +403,7 @@ Rules this screen establishes:
   `betFreeStreakDays: 3` by hand while the statement showed a bet that same day. A kept counter and
   the transactions it counts are two things that can disagree, and the one the user would believe is
   the counter. `/achievements` reads `gamification`'s `StreakRecord`, derived on the backend on every
-  read; the dashboard derives the same shape from its fixture until it reads the backend too.
+  read; the dashboard's tile reads the same answer.
 - **A bet-free day is a day we looked at and found nothing** — which only holds inside the window we
   have consent to read. So the window is part of the record, and the stretch that runs off its far
   edge reports **"pelo menos 33 dias"**, never 33. We know it ran at least that long; we have no
@@ -549,11 +540,33 @@ Charts are Recharts via the shadcn `chart` primitive. The rules that produced th
   for anyone who asked for less motion. Both are `useSyncExternalStore` — React 19 lints
   `setState` inside an effect.
 
+## `/dashboard` — Início, a summary of the other screens
+
+It owns **no figure**. `_dashboard-snapshot.ts` makes five reads in parallel — `/bets/summary?days=30`,
+`/achievements`, `/betting-ceiling`, the newest statement rows and `/accounts` — and each card is
+another screen's answer from that screen's own endpoint, so the two cannot disagree.
+
+- **The hero is the last 30 days, not the calendar month.** It is `/bets` over its shortest window,
+  to the cent, and "Ver detalhes" opens `/bets?period=30`. A calendar month would drop to zero on
+  the first and make a "vs last month" delta compare half a month with a whole one, so there is no
+  delta. The goal card *is* a calendar month, because that is what a ceiling governs, and names the
+  month to say so.
+- **The betting summary gates the screen.** `NO_CONSENT`, `SYNCING` or a failure renders one
+  `StatementUnavailable` under the greeting, never five cards reading R$ 0,00. Once it is ready, the
+  other reads degrade **per card** — a failed streak, goal or list says so in place.
+- **There is no balance tile.** No endpoint serves balances: Open Finance shares a statement here,
+  and detection does not need one (data minimisation). The second tile is the share of income
+  (`incomeShare`, same window, uncapped, stated without comment).
+- **The streak tile says "pelo menos"** when the current stretch runs off the window, like
+  `/achievements`.
+- Reading `/achievements` awards what fell due, so a badge can be celebrated from here — over the
+  stream, as anywhere else.
+
 ## Dashboard conventions
 
-- **Exactly one hero figure per view** (≥48px). On the dashboard it is the monthly betting spend,
-  in red — that is the number the product exists to confront the user with, and the 12-month yield
-  equivalent sits directly beside it, labelled as an estimate with its rate stated.
+- **Exactly one hero figure per view** (≥48px). On the dashboard it is the betting spend over the
+  last 30 days, in red — that is the number the product exists to confront the user with, and the
+  12-month yield equivalent sits directly beside it, labelled as an estimate with its rate stated.
 - Stat tiles carry label (sentence case) · value · one line of detail. Deltas are signed and named
   against a period, and take red only when the direction is genuinely bad.
 - `tabular-nums` belongs in columns of numbers (transaction rows), never on the hero figure, where
