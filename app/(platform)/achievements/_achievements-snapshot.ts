@@ -1,86 +1,86 @@
 /**
- * Everything `/achievements` and `/achievements/[family]` show, derived once per
- * request from the same fixtures.
+ * Everything `/achievements` and `/achievements/[family]` show, read once per
+ * request from the backend.
  *
  * Both screens read it so a badge cannot be earned on one and missing on the
  * other: the family page is the same record, opened further, never a second
- * evaluation that could disagree with the summary that linked to it.
- *
- * TODO(gamification): retires with the fixtures, when both screens read the
- * module's `BadgeCollection` and `Streak` from the backend.
+ * read that could disagree with the summary that linked to it.
  */
-import { selectCycles, toMonthLabel, type MonthlyBetTotal } from '../goals/_goals-view';
-import { GOALS } from '../goals/_mock-goals';
-import { SAVINGS_GOAL_FIXTURE_ROWS } from '../goals/_mock-savings-goals';
-import { toLedgerRows } from '../transactions/_ledger-view';
-import { buildLedgerEntries } from '../transactions/_mock-ledger';
-import { toSupportSignal } from '../transactions/_support-signal';
-import { MONTHLY_HISTORY } from '../transactions/insights/_mock-monthly-history';
-import { toBadgeAwards, type BadgeAward, type ClosedMonth } from './_badges-view';
+import { fetchSupportOffer } from '@modules/awareness';
+import { describeAchievements, type AchievementsOverview } from '@modules/gamification';
+import { assertNever } from '@shared/domain/assert-never';
+
+import type { StatementUnavailableReason } from '../transactions/_components/statement-unavailable';
+import type { SupportSignal } from '../transactions/_support-signal';
+import { toStreakDays, toStreakRecord } from './_achievements-view';
+import { toBadgeAwards, type BadgeAward } from './_badges-view';
 import type { StreakDay, StreakRecord } from './_streak';
-import { toBetDays, toDataWindow, toStreakDays, toStreakRecord } from './_streak-view';
-
-/** Two months of squares: long enough to show a pattern, short enough to read on a phone. */
-const CALENDAR_DAY_COUNT = 60;
-
-/* The same monthly totals the charts and the goal screen read, so a month that is
-   inside the ceiling here cannot be a different figure there. */
-const MONTHS: readonly MonthlyBetTotal[] = MONTHLY_HISTORY.map((month) => ({
-  monthsAgo: month.monthsAgo,
-  betsInCents: month.bets,
-}));
-
-/** How far back the statement data goes, which bounds every streak on the screen. */
-const OLDEST_MONTHS_AGO = Math.max(...MONTHLY_HISTORY.map((month) => month.monthsAgo));
 
 /**
- * The same signal `/transactions/insights` renders, from the same totals and under
- * the same dismissal — one offer, dismissed once.
- *
- * It matters more here than anywhere else in the app. The product rule is that
- * sustained betting surfaces support resources *instead of* more gamification, and
- * these are the gamification screens: the offer goes above everything, and the
- * nudge toward the next milestone is withheld while it stands.
+ * The streak half, or why there is none. No consent is not zero: without a
+ * ready statement the screen says so instead of drawing a hero of 0 days that
+ * would read as "you bet every day".
  */
-export const SUPPORT_SIGNAL = toSupportSignal(MONTHLY_HISTORY.map((month) => month.bets));
+export type StreakSection =
+  | {
+      readonly kind: 'MEASURED';
+      readonly record: StreakRecord;
+      readonly calendarDays: readonly StreakDay[];
+    }
+  | { readonly kind: 'UNAVAILABLE'; readonly reason: StatementUnavailableReason };
 
-export type AchievementsSnapshot = {
-  readonly streaks: StreakRecord;
-  readonly calendarDays: readonly StreakDay[];
-  readonly awards: readonly BadgeAward[];
-};
+export type AchievementsSnapshot =
+  | {
+      readonly kind: 'READ';
+      readonly streak: StreakSection;
+      readonly awards: readonly BadgeAward[];
+      /**
+       * The same offer `/transactions/insights` renders, under the same
+       * dismissal — one offer, dismissed once. `null` when it could not be read:
+       * a failed read renders no card, never an alarm in its place.
+       */
+      readonly supportSignal: SupportSignal | null;
+    }
+  | { readonly kind: 'FAILED'; readonly message: string };
 
-/**
- * Closed months only, everywhere it matters: the open month is half a month, and
- * a badge awarded on it could be undone by its last ten days.
- */
-function toClosedMonths(reference: Date): readonly ClosedMonth[] {
-  return MONTHLY_HISTORY.filter((month) => month.monthsAgo > 0).map((month) => ({
-    monthsAgo: month.monthsAgo,
-    monthLabel: toMonthLabel(month.monthsAgo, reference),
-    betsInCents: month.bets,
-  }));
+function toStreakSection(overview: AchievementsOverview): StreakSection {
+  switch (overview.syncStatus) {
+    case 'NO_CONSENT':
+      return { kind: 'UNAVAILABLE', reason: { kind: 'NO_CONSENT' } };
+    case 'SYNCING':
+      return { kind: 'UNAVAILABLE', reason: { kind: 'SYNCING' } };
+    case 'READY':
+      return overview.streak === null
+        ? { kind: 'UNAVAILABLE', reason: { kind: 'SYNCING' } }
+        : {
+            kind: 'MEASURED',
+            record: toStreakRecord(overview.streak, overview.todayKey),
+            calendarDays: toStreakDays(overview.streak, overview.todayKey),
+          };
+    default:
+      return assertNever(overview.syncStatus);
+  }
 }
 
-export function readAchievementsSnapshot(reference: Date): AchievementsSnapshot {
-  /* Streaks are derived from the statement, never stored. The ledger is the same
-     one `/transactions` renders, so a day marked bet-free here is a day with no
-     betting row there. */
-  const rows = toLedgerRows(buildLedgerEntries(reference), reference);
-  const betDays = toBetDays(rows, reference);
-  const dataWindow = toDataWindow(OLDEST_MONTHS_AGO, reference);
-  const streaks = toStreakRecord(betDays, dataWindow, reference);
+/**
+ * The backend awards what fell due on this read; the celebration for it comes
+ * over the notification stream, so nothing here — however many badges are
+ * listed — celebrates anything.
+ */
+export async function readAchievementsSnapshot(sessionToken: string): Promise<AchievementsSnapshot> {
+  const [achievements, supportOffer] = await Promise.all([
+    describeAchievements(sessionToken),
+    fetchSupportOffer(sessionToken),
+  ]);
 
-  const awards = toBadgeAwards({
-    streaks,
-    cycles: selectCycles(GOALS, MONTHS, reference).filter((cycle) => cycle.monthsAgo > 0),
-    months: toClosedMonths(reference),
-    savings: SAVINGS_GOAL_FIXTURE_ROWS,
-  });
+  if (!achievements.ok) {
+    return { kind: 'FAILED', message: achievements.failure.message };
+  }
 
   return {
-    streaks,
-    calendarDays: toStreakDays(betDays, CALENDAR_DAY_COUNT, dataWindow, reference),
-    awards,
+    kind: 'READ',
+    streak: toStreakSection(achievements.value),
+    awards: toBadgeAwards(achievements.value.badges),
+    supportSignal: supportOffer.ok ? supportOffer.value : null,
   };
 }

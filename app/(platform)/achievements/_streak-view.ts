@@ -11,15 +11,12 @@
  * Every function is pure and takes its days and its reference date as arguments,
  * so the page is the only file that knows where the numbers come from.
  *
- * TODO(gamification): this is the `Streak` aggregate's read model. `toStreakRecord`
- * is the arithmetic the module owns and it belongs there with tests — the single
- * bet-free day, the stretch that touches the window edge, and the window with no
- * bets at all, none of which is covered anywhere today.
- *
- * TODO(gamification): day boundaries here are the server's local midnight, the
- * same ones the statement groups by. The module resolves them in
- * `America/Sao_Paulo` through the injected `Clock`, or somebody betting near
- * midnight loses a day for no reason.
+ * **Only the dashboard still reads this**, over its fixture ledger.
+ * `/achievements` reads `gamification`'s `StreakRecord` from the backend, which
+ * owns this arithmetic with tests and São Paulo day boundaries; this file
+ * retires with the dashboard's fixtures. `describeDays` and
+ * `describeStreakLength` stay shared, so no two cards word the same fact
+ * differently.
  */
 import { countDaysAgo, type LedgerRow } from '../transactions/_ledger-view';
 import type {
@@ -125,13 +122,19 @@ function toStreak(
  * not earned a day yet — and a screen that counted it would drop back to zero the
  * moment a bet arrived that evening.
  */
-function toCurrentStreak(betDays: ReadonlyMap<number, StreakBreak>): CurrentStreak {
-  if (betDays.size === 0) return { days: 0, hasBetToday: false, lastBreak: null };
+function toCurrentStreak(
+  betDays: ReadonlyMap<number, StreakBreak>,
+  windowDayCount: number,
+): CurrentStreak {
+  if (betDays.size === 0) {
+    return { days: windowDayCount - 1, startsBeforeWindow: true, hasBetToday: false, lastBreak: null };
+  }
 
   const lastBetDaysAgo = Math.min(...betDays.keys());
 
   return {
     days: Math.max(0, lastBetDaysAgo - 1),
+    startsBeforeWindow: false,
     hasBetToday: lastBetDaysAgo === 0,
     lastBreak: betDays.get(lastBetDaysAgo) ?? null,
   };
@@ -174,9 +177,10 @@ export function toStreakRecord(
   );
 
   return {
-    current: toCurrentStreak(betDays),
+    current: toCurrentStreak(betDays, dataWindow.dayCount),
     longest: byLengthDescending.at(0) ?? null,
     closedStreaks: byLengthDescending,
+    closedStreakCount: byLengthDescending.length,
     betFreeDayCount: dataWindow.dayCount - betDays.size,
     betDayCount: betDays.size,
     windowDayCount: dataWindow.dayCount,

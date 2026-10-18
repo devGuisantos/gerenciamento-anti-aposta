@@ -84,9 +84,9 @@ function StreakRow({ streak }: { readonly streak: BetFreeStreak }) {
  */
 function describeRecord(record: StreakRecord): string {
   const streaks =
-    record.closedStreaks.length === 1
+    record.closedStreakCount === 1
       ? '1 sequência fechada'
-      : `${record.closedStreaks.length} sequências fechadas`;
+      : `${record.closedStreakCount} sequências fechadas`;
 
   return `${streaks} em ${record.windowDayCount} dias de extrato, desde ${record.windowStartLabel}.`;
 }

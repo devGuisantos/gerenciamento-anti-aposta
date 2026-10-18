@@ -39,7 +39,10 @@ export function NextMilestoneCard({ award }: NextMilestoneCardProps) {
     );
   }
 
-  const { definition, detail, progressPercentage, currentValue } = award;
+  const { definition, detail } = award;
+  /* `selectNextMilestone` only puts forward a badge that can be measured. */
+  const progressPercentage = award.progressPercentage ?? 0;
+  const currentValue = award.currentValue ?? 0;
   const descriptor = BADGE_FAMILY_DESCRIPTORS[definition.family];
 
   return (

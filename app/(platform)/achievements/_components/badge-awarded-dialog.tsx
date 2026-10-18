@@ -18,7 +18,7 @@ import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import type { PlatformNotification } from '@modules/notifications';
 import { MilestoneConfetti, type ConfettiBurst } from '@shared/ui/milestone-confetti';
 
-import { BADGE_FAMILY_DESCRIPTORS, findBadgeDefinition } from '../_badge';
+import { BADGE_FAMILY_DESCRIPTORS, findBadgeFamilyById } from '../_badge';
 import { BadgeMedal } from './badge-medal';
 
 export type BadgeAwardedNotification = Extract<
@@ -111,16 +111,17 @@ function AwardBody({
   readonly notification: BadgeAwardedNotification;
   readonly entrance: 'CELEBRATE' | 'NONE';
 }) {
-  /* The payload carries the id; the catalogue carries the mark and the criterion.
-     An id it does not know still renders, from the payload alone. */
-  const definition = findBadgeDefinition(notification.badgeId);
-  const descriptor = definition === null ? null : BADGE_FAMILY_DESCRIPTORS[definition.family];
+  /* The payload carries the title and what was done, both worded by the backend,
+     which owns the catalogue; the id only picks the family's mark. An id it does
+     not know still renders, from the payload alone. */
+  const family = findBadgeFamilyById(notification.badgeId);
+  const descriptor = family === null ? null : BADGE_FAMILY_DESCRIPTORS[family];
 
   return (
     <>
       <div className="flex flex-col items-center gap-4 pt-2 text-center">
         <BadgeMedal
-          family={definition?.family ?? null}
+          family={family}
           status="EARNED"
           entrance={entrance}
         />
@@ -147,18 +148,12 @@ function AwardBody({
           <motion.div variants={LINE}>
             <DialogTitle className="text-2xl">{notification.title}</DialogTitle>
           </motion.div>
-          <motion.div variants={LINE}>
-            <DialogDescription>
-              {definition?.criterion ?? notification.description}
+          <motion.div variants={LINE} className="space-y-1 rounded-lg bg-muted p-4 text-left">
+            <p className="text-xs text-muted-foreground">O que você fez</p>
+            <DialogDescription className="text-sm text-foreground">
+              {notification.description}
             </DialogDescription>
           </motion.div>
-
-          {definition === null ? null : (
-            <motion.div variants={LINE} className="space-y-1 rounded-lg bg-muted p-4 text-left">
-              <p className="text-xs text-muted-foreground">O que você fez</p>
-              <p className="text-sm">{notification.description}</p>
-            </motion.div>
-          )}
 
           <motion.div variants={LINE} className="space-y-2">
             {descriptor?.evidence === 'SELF_REPORTED' ? (

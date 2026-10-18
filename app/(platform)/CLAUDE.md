@@ -114,8 +114,8 @@ complain about. It reads **real backend data**: `GET /transactions` and `GET /ac
 - `_actions.ts` holds the three Server Actions: the next page, the correction and its undo.
 - `_components/` holds the interactive leaves.
 - `_mock-ledger.ts`, `_ledger-entry.ts`, `_ledger-view.ts` and `_accounts.ts` are **no longer read
-  by this screen** — they stay only for the dashboard and `/achievements`, which still
-  read fixtures, and retire with them.
+  by this screen** — they stay only for the dashboard, which still reads fixtures, and retire
+  with it.
 
 Rules this screen establishes:
 
@@ -165,7 +165,7 @@ Rules this screen establishes:
 - **Client components import types from the modules, never values.** The modules are server-only
   (`next/headers`); one value import from a file the browser loads breaks the route at build.
 - **The remaining fixtures agree per calendar month, not per rolling window** — the rule the
-  dashboard and `/achievements` still depend on until they read the backend.
+  dashboard still depends on until it reads the backend.
 - `SelectValue` needs **explicit children**. Radix fills it from the selected item, and items only
   register once the portal opens — leave it empty and the trigger renders blank on the server.
 
@@ -173,8 +173,8 @@ Rules this screen establishes:
 
 The first screen in this group that read **real backend data** rather than a fixture: the consent,
 the shared accounts and the newest statement rows all come from backend-anti-aposta. `/transactions`
-, `/transactions/insights`, `/bets` and `/goals` now do too; the dashboard and `/achievements` still
-read fixtures, which is why the header's "Dados simulados" stays.
+, `/transactions/insights`, `/bets`, `/goals` and `/achievements` now do too; the dashboard still
+reads fixtures, which is why the header's "Dados simulados" stays.
 
 - **One card per state, decided by the backend's status.** `AUTHORISED` shows `ConsentCard`
   (accounts, last sync, "Sincronizar", "Revogar"); anything else shows `ConnectCard`, which says
@@ -253,8 +253,8 @@ Both halves read `@modules/gamification` (backend `gamification`, contract in
 with `requireSession()`. **Every figure is the backend's** — the views turn month keys into labels and
 money objects into cents, and decide nothing.
 
-`_goal.ts`, `_mock-goals.ts`, `_goals-view.ts` and `_mock-savings-goals.ts` are **no longer read by
-this screen** — they stay only for the dashboard card and `/achievements`, and retire with them.
+`_goal.ts`, `_mock-goals.ts` and `_goals-view.ts` are **no longer read by this screen** — they stay
+only for the dashboard card, and retire with it.
 
 ## `/goals` — savings goals
 
@@ -377,13 +377,22 @@ Rules this screen establishes:
 The `gamification` module's screen, and the one place in the product where a mechanic could
 turn into the thing the product opposes. Its parts live in `achievements/`:
 
-- `_streak.ts` is the streak shape, mirroring `gamification`'s `Streak`. `_streak-view.ts` derives
-  every streak from the ledger and holds the arithmetic.
-- `_badge.ts` is the catalogue — titles, criteria, thresholds — and carries the module's rules as
-  comments where the data is. `_badges-view.ts` evaluates it against what was observed.
-- `_achievements-snapshot.ts` derives the streaks, the calendar and the awards once per request.
-  `page.tsx` and `[family]/page.tsx` both read it, so a folder's count and the list behind it
-  cannot disagree.
+It reads **real backend data**: `GET /achievements` through `@modules/gamification` (contract:
+`backend-anti-aposta/docs/features/achievements.md`) and the support offer from `@modules/awareness`.
+**Every figure and every award is the backend's** — the streak is derived there from the statement,
+the badges are awarded there and never revoked, and reading the screen awards whatever fell due
+since the last look. The views label and word; they decide nothing.
+
+- `_streak.ts` is the streak shape the components render. `_achievements-view.ts` builds it from the
+  backend's São Paulo day keys (labels, distances from today). `_streak-view.ts` still derives the
+  same shape from the fixture ledger, **for the dashboard only**, and keeps the shared wording
+  (`describeDays`, `describeStreakLength`).
+- `_badge.ts` holds how each family is presented — label, mark, unit, where to check the figure,
+  measured or self-reported — and carries the module's rules as comments. The catalogue itself
+  (ids, thresholds, titles, criteria) is the backend's. `_badges-view.ts` words each badge's
+  evidence and groups the cards.
+- `_achievements-snapshot.ts` reads the backend once per request. `page.tsx` and
+  `[family]/page.tsx` both read it, so a folder's count and the list behind it cannot disagree.
 - **The badges are folded by family.** `/achievements` shows one `BadgeFamilyFolder` per family —
   its count, its latest earned badge (or, before one, the first with its distance) — linking to
   `/achievements/<slug>` (`streak`, `ceiling`, `reduction`, `savings`), which lists every badge of
@@ -402,13 +411,13 @@ Rules this screen establishes:
 - **Streaks are derived from the statement, never stored.** The dashboard used to hold
   `betFreeStreakDays: 3` by hand while the statement showed a bet that same day. A kept counter and
   the transactions it counts are two things that can disagree, and the one the user would believe is
-  the counter. Both screens now read `toStreakRecord`, and the fixture fields are gone.
+  the counter. `/achievements` reads `gamification`'s `StreakRecord`, derived on the backend on every
+  read; the dashboard derives the same shape from its fixture until it reads the backend too.
 - **A bet-free day is a day we looked at and found nothing** — which only holds inside the window we
   have consent to read. So the window is part of the record, and the stretch that runs off its far
   edge reports **"pelo menos 33 dias"**, never 33. We know it ran at least that long; we have no
   right to say it started there. Any new figure that could be truncated says so the same way.
-- **Today is not counted.** The module extends a streak on the daily clock tick, which fires when a
-  day ends, so the counter holds complete days only. A screen that counted today would drop back to
+- **Today is not counted.** The streak holds complete days only. A screen that counted today would drop back to
   zero when a bet arrived in the evening, which is the one behaviour that would teach people to
   distrust it.
 - **The hero is a count of days, and it is the only hero in the product that is not red.** Red means
@@ -477,8 +486,8 @@ gamification. `SupportCard` on `/transactions/insights` is that path, and the ru
 
 - **The trigger is conservative on purpose, and the backend owns it.** `awareness.SupportOffer`
   (`GET /awareness/support-offer`, read by `/transactions/insights`) needs three consecutive whole
-  months in the high band, and sends the threshold the copy names. `_support-signal.ts` is the same
-  rule over the fixture, kept only until `/achievements` reads the backend. A failed read renders
+  months in the high band, and sends the threshold the copy names; `/achievements` reads the same
+  answer. `_support-signal.ts` is only the shape `SupportCard` renders. A failed read renders
   no card — never an error in its place. A missed offer costs one screen; a false one tells somebody they may
   have a problem they do not have, from an app that has only seen their bank statement. New
   signals get their negative cases tested first.
