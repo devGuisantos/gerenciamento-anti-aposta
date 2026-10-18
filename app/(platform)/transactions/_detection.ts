@@ -6,7 +6,12 @@
  * The betting MCC appears here as a label only. When `bet-detection` lands, the
  * number itself lives there once, as `GAMBLING_MCC`.
  */
-import type { DetectionConfidence, DetectionReason } from './_ledger-entry';
+
+/** Why `bet-detection` flagged the entry. Never a bare boolean — the user is owed the reason. */
+export type DetectionReason = 'GAMBLING_MCC' | 'LICENSED_CNPJ' | 'DESCRIPTION_KEYWORD';
+
+/** Lowest confidence of the policies that agreed, as the classifier reports it. */
+export type DetectionConfidence = 'HIGH' | 'MEDIUM' | 'LOW';
 
 export const DETECTION_LABELS: Readonly<Record<DetectionReason, string>> = {
   GAMBLING_MCC: 'MCC 7995',

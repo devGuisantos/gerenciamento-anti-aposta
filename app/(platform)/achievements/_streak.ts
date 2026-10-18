@@ -1,8 +1,6 @@
 /**
- * The shapes the Conquistas screen renders, built from `gamification`'s
- * `StreakRecord` on the backend by `_achievements-view.ts`. The dashboard still
- * builds the same shapes from its fixture (`_streak-view.ts`) until it reads the
- * backend too.
+ * The shapes the Conquistas screen and the dashboard's streak tile render, built
+ * from `gamification`'s `StreakRecord` on the backend by `_achievements-view.ts`.
  *
  * A streak here is a stretch of **whole days with no detected bet**, and every
  * figure on this screen is derived from transactions the platform already read.
@@ -19,7 +17,7 @@
  *   have no data for. That only holds inside the window, which is why the window
  *   is part of the record instead of an implementation detail.
  */
-import type { DetectionReason } from '../transactions/_ledger-entry';
+import type { DetectionReason } from '../transactions/_detection';
 
 /** The bet that ended a stretch, named so the record stays auditable. */
 export type StreakBreak = {

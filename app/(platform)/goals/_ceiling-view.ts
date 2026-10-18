@@ -15,6 +15,7 @@ import type {
   CycleStatus,
   SimulationStep,
 } from '@modules/gamification';
+import { formatBRL } from '@shared/ui/money-text';
 
 const TIME_ZONE = 'America/Sao_Paulo';
 
@@ -75,6 +76,19 @@ export function toCycleRow(cycle: CeilingCycle): CycleRow {
     marginInCents: cycle.margin.amountInCents,
     usedPercentage: cycle.usedPercent,
   };
+}
+
+/**
+ * How far a month sat from its ceiling, in one phrase. Shared so the goal screen
+ * and the dashboard card cannot word the same fact two different ways.
+ *
+ * It reports a distance and nothing more. "R$ 640,00 acima do teto" is something
+ * the reader can do what they like with; anything warmer or colder would be the
+ * product having an opinion about their month.
+ */
+export function describeCycleMargin(cycle: Pick<CycleRow, 'marginInCents'>): string {
+  const distance = formatBRL(Math.abs(cycle.marginInCents));
+  return cycle.marginInCents < 0 ? `${distance} acima do teto` : `${distance} abaixo do teto`;
 }
 
 export function toCurrentCycleRow(cycle: CurrentCeilingCycle): CurrentCycleRow {

@@ -17,7 +17,9 @@ import { cn } from 'cn';
 
 import { StatementUnavailable } from '../transactions/_components/statement-unavailable';
 import {
+  describeBookmakers,
   describeBusiestBand,
+  describeTransactions,
   toBetCostView,
   toBookmakerViews,
   toDetectionTallyViews,
@@ -268,12 +270,4 @@ function AccumulatedCost({
       </CardContent>
     </Card>
   );
-}
-
-function describeTransactions(count: number): string {
-  return count === 1 ? '1 transação' : `${count} transações`;
-}
-
-function describeBookmakers(count: number): string {
-  return count === 1 ? '1 casa de apostas' : `${count} casas de apostas`;
 }

@@ -2,8 +2,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { formatBRL } from '@shared/ui/money-text';
 
-import type { CycleRow } from '../_ceiling-view';
-import { describeCycleMargin } from '../_goals-view';
+import { describeCycleMargin, type CycleRow } from '../_ceiling-view';
 import { CycleStatusBadge } from './cycle-status-badge';
 
 /** The bar cannot run past its own track; the figures beside it keep the real number. */
