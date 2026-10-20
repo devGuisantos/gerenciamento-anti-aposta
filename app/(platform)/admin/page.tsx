@@ -37,7 +37,7 @@ export default async function AdminPage() {
           <p className="font-medium">Ferramenta de demonstração</p>
           <p className="text-muted-foreground">
             Não aparece na navegação. Exige uma sessão, e o back-end só a aceita quando os
-            lançamentos simulados estão ligados — nunca em produção. Tudo vai para o destinatário
+            lançamentos simulados estão ligados. Tudo vai para o destinatário
             escolhido, e só para ele.
           </p>
         </div>

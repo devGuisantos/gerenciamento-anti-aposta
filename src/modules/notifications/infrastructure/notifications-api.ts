@@ -40,7 +40,7 @@ export async function openNotificationStream(input: {
 /**
  * `POST /api/v1/users/{userId}/notifications` — the demonstration console,
  * sending to one person by id. The backend mounts it only where demo writes
- * are on (never in production), and otherwise answers 404.
+ * are on, and otherwise answers 404.
  */
 export async function sendDemoNotification(
   sessionToken: string,

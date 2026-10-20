@@ -75,7 +75,7 @@ id** (`RecipientField`, which starts as the presenter's own id and shows it to c
 
 Security: every action calls `requireSession()`, and the backend mounts the console's routes
 (`/sandbox/bank/customers/…`, `/api/v1/users/{id}/notifications`) **only where demo writes are
-on — never in production**. That switch is the property, not the unlisting: any signed-in person
+on** (`SANDBOX_BANK_LEDGER_WRITES`, production included). That switch is the property, not the unlisting: any signed-in person
 may use the console, so it must not exist where real people are. Off, the backend answers 404 and
 the console says it is unavailable here.
 

@@ -129,7 +129,7 @@ function customerPath(customerId: string): string {
  * `GET /bank/customers/{customerId}/accounts` — somebody's accounts at the bank,
  * for the demonstration console. It opens none: a customer who never reached
  * the bank has an empty list. Like the booking route, it does not exist where
- * the backend switched demo writes off (always in production), and answers 404.
+ * the backend switched demo writes off, and answers 404.
  */
 export async function listCustomerBankAccounts(
   sessionToken: string,
@@ -150,7 +150,7 @@ export async function listCustomerBankAccounts(
  * `POST /bank/customers/{customerId}/accounts/{id}/ledger-entries` — books a
  * movement on somebody's account. The bank then notices the platform, which
  * synchronises at once, and that person's open screens update over the
- * notification stream. Not mounted in production; answers 404 there.
+ * notification stream. Not mounted where demo writes are off; answers 404 there.
  */
 export async function bookLedgerEntryFor(
   sessionToken: string,
