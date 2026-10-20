@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useActionState, useState } from 'react';
+import { startTransition, useActionState, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 
@@ -10,10 +10,22 @@ import { registerAction } from '../actions';
 import { AuthTextField } from './auth-text-field';
 import { ConsentField } from './consent-field';
 import { FormFailureNotice } from './form-failure-notice';
+import {
+  HUMAN_VERIFICATION_FIELD,
+  HumanVerificationField,
+  type HumanVerificationHandle,
+} from './human-verification-field';
 import { PasswordField } from './password-field';
 
 const MISMATCH_MESSAGE = 'As duas senhas não são iguais.';
 const CONSENT_MESSAGE = 'Para criar a conta é preciso autorizar o uso do nome e do e-mail.';
+const AWAITING_VERIFICATION_MESSAGE =
+  'Aguarde a verificação de segurança terminar e envie de novo.';
+
+type RegisterFormProps = {
+  /** Public by design: Turnstile's site key is meant to be in the page. */
+  readonly humanVerificationSiteKey: string;
+};
 
 /**
  * The registration form.
@@ -28,7 +40,9 @@ const CONSENT_MESSAGE = 'Para criar a conta é preciso autorizar o uso do nome e
  * browser's wins: it reflects what is on screen now, while the server's is
  * about the last submit.
  */
-export function RegisterForm() {
+export function RegisterForm({ humanVerificationSiteKey }: RegisterFormProps) {
+  const humanVerification = useRef<HumanVerificationHandle>(null);
+  const [isAwaitingVerification, setIsAwaitingVerification] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [hasConsented, setHasConsented] = useState(false);
@@ -57,6 +71,17 @@ export function RegisterForm() {
     }
 
     const formData = new FormData(event.currentTarget);
+    const verificationToken = formData.get(HUMAN_VERIFICATION_FIELD);
+    const isVerified = typeof verificationToken === 'string' && verificationToken !== '';
+    setIsAwaitingVerification(!isVerified);
+
+    if (!isVerified) {
+      return;
+    }
+
+    // The token now travels in `formData`; the widget fetches a fresh one during
+    // the round trip, so a refused submit can be retried without a stale token.
+    humanVerification.current?.reset();
     startTransition(() => submitAction(formData));
   }
 
@@ -111,11 +136,19 @@ export function RegisterForm() {
         error={consentError ?? state.fieldErrors['acceptedRegistrationConsent'] ?? null}
       />
 
+      <HumanVerificationField siteKey={humanVerificationSiteKey} ref={humanVerification} />
+
       <Button type="submit" size="lg" className="h-10 w-full" disabled={isPending}>
         {isPending ? 'Criando conta…' : 'Criar conta'}
       </Button>
 
-      <FormFailureNotice message={state.message} />
+      <FormFailureNotice
+        message={
+          (isAwaitingVerification ? AWAITING_VERIFICATION_MESSAGE : null) ??
+          state.fieldErrors[HUMAN_VERIFICATION_FIELD] ??
+          state.message
+        }
+      />
     </form>
   );
 }

@@ -31,6 +31,7 @@ const registrationFieldsSchema = z.object({
   email: z.string(),
   password: z.string(),
   passwordConfirmation: z.string(),
+  humanVerificationToken: z.string(),
 });
 
 /** A Radix checkbox posts `"on"` when ticked and nothing at all when not. */
