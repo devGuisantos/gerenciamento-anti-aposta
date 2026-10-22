@@ -9,6 +9,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
+import { env } from '@shared/infrastructure/env';
+
 import { RegisterForm } from '../_components/register-form';
 
 export const metadata: Metadata = {
@@ -29,7 +31,7 @@ export default function RegisterPage() {
       </CardHeader>
 
       <CardContent className="space-y-6">
-        <RegisterForm />
+        <RegisterForm humanVerificationSiteKey={env.TURNSTILE_SITE_KEY} />
 
         <p className="text-center text-sm text-muted-foreground">
           Já tem conta?{' '}

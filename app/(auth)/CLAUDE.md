@@ -19,6 +19,7 @@ app/(auth)/
     password-field.tsx       # label, input, visibility toggle, hint, optional meter
     password-strength-meter.tsx
     consent-field.tsx        # the LGPD checkbox
+    human-verification-field.tsx # Cloudflare Turnstile, register only
     sign-in-form.tsx
     register-form.tsx
     forgot-password-form.tsx
@@ -165,6 +166,25 @@ is fixed per call site, so React never has to switch modes.
 - It is never pre-checked, and it is validated in the submit handler rather than with a native
   `required`: Radix renders the real checkbox hidden, and a hidden required control makes Chrome
   refuse the submit with nothing visible to the user.
+
+## The registration challenge
+
+`/register` carries a Cloudflare Turnstile widget (`HumanVerificationField`); `/login` does not, on
+purpose — sign-in is throttled by the backend, and a challenge on the screen somebody uses every day
+is a cost paid by the people this product serves.
+
+- The widget writes its token into a hidden input named `humanVerificationToken`, so
+  `new FormData(form)` carries it to `registerAction` with no extra wiring. The backend verifies it;
+  the frontend decides nothing.
+- **A token is single-use.** `RegisterForm` resets the widget right after reading the token, so a
+  refused submit can be retried without reloading.
+- An empty token is caught in the submit handler with a form-level "aguarde" message, rather than
+  disabling the button — a disabled button explains nothing.
+- The site key comes from `env.TURNSTILE_SITE_KEY`, read by the page (a Server Component) and passed
+  as a prop. It is public by design, but nothing here is `NEXT_PUBLIC_`. Locally it is Cloudflare's
+  always-passing test key, `1x00000000000000000000AA`.
+- If a script policy is ever added to the CSP, it must allow `https://challenges.cloudflare.com` for
+  `script-src` and `frame-src`.
 
 ## The support line in the footer
 

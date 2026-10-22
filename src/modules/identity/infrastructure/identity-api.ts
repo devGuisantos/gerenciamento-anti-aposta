@@ -32,6 +32,8 @@ export type RegistrationRequest = {
   readonly password: string;
   readonly passwordConfirmation: string;
   readonly acceptedRegistrationConsent: boolean;
+  /** Cloudflare Turnstile's single-use token; the backend verifies it. */
+  readonly humanVerificationToken: string;
 };
 
 export type SignInRequest = {
