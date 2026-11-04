@@ -35,7 +35,7 @@ export function ConnectCard({ previous }: { readonly previous: Consent | null })
       <CardHeader>
         <CardTitle>Conectar uma instituição</CardTitle>
         <CardDescription>
-          Pelo Open Finance, você autoriza no próprio banco que o anti-aposta leia o seu extrato.
+          Pelo Open Finance, você autoriza no próprio banco que o PausaBet leia o seu extrato.
           Neste ambiente de demonstração, o banco é o Banco Andorinha, uma instituição simulada.
         </CardDescription>
       </CardHeader>

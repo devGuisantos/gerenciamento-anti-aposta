@@ -21,7 +21,7 @@ export type AuthorisationFormState = {
 
 /** The form arrived without the request it answers — a crafted POST, not a person. */
 const MALFORMED_STATE: AuthorisationFormState = {
-  message: 'Não conseguimos ler esta autorização. Volte ao anti-aposta e comece de novo.',
+  message: 'Não conseguimos ler esta autorização. Volte ao PausaBet e comece de novo.',
   redirectTo: null,
 };
 
