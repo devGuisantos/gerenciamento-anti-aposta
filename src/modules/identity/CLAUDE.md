@@ -12,7 +12,9 @@ business rule of its own:
 
 ```
 infrastructure/
-  identity-api.ts             # registerUser, signIn, fetchCurrentUser, endSession
+  identity-api.ts             # registerUser, signIn, fetchCurrentUser, endSession, and what
+                              # /settings calls: fetchAccount, changeDisplayName, changeEmail,
+                              # changePassword, endOtherSessions, deleteAccount
   session-cookie.ts           # storeSession, readSessionToken, clearSession
   session-cookie-options.ts   # cookie name + options, importable by proxy.ts
   require-session.ts          # requireSession(): "who is asking", or redirect to /login
@@ -28,6 +30,13 @@ index.ts                      # the public API
   production, expiring at the backend's `expiresAt`. No token in `localStorage`, ever, and no token
   in anything returned to a Client Component.
 - Authenticated backend calls send it as `Authorization: Bearer <token>` from the server.
+
+## Deleting an account
+
+The rules are the backend's, and it is immediate. `deleteAccount` ends every session with the
+account, so the action drops the cookie and redirects to `/login?conta=excluida`. The value is a code
+from `app/_account-notice.ts`: the screen maps it to its own sentence and never renders the query
+string.
 
 ## Rules
 

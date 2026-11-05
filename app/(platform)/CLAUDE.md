@@ -57,8 +57,7 @@ looks at the rendered page. State is explicit and testable.
 
 `NAV_GROUPS` in `_components/app-sidebar.tsx` is the single source of truth, and each entry maps to
 a bounded context in `src/modules`. Adding an item means adding its route in the same commit —
-a nav entry that 404s is a broken nav, which is why the unimplemented screens render
-`PlaceholderPage` naming the module that will own them.
+a nav entry that 404s is a broken nav.
 
 ## `/admin` — the demo console
 
@@ -95,6 +94,23 @@ arrives as `{ amountInCents, currency }` and the view files flatten it to **inte
   derives or estimates a number another screen also shows. The moment one needs a calculation, it
   belongs in a backend use case.
 - Format money only through `MoneyText` / `formatBRL` from `@shared/ui/money-text`.
+
+## `/settings` — the account
+
+Reads `GET /identity/users/current` through `@modules/identity`. `_actions.ts` holds the writes, each
+opening with `requireSession()`; every rule, and whether the password is right, is the backend's
+(`backend-anti-aposta/src/modules/identity/CLAUDE.md`).
+
+- **Forms submit through `onSubmit`, not `<form action>`** (`useSettingsForm`): React resets an
+  uncontrolled form once its action settles, and a refused change would clear what was typed. The
+  name and e-mail forms are keyed by value, so a saved change remounts them on the backend's answer.
+- **The address, the password and the deletion ask for the current password; the name does not.**
+- **The new e-mail is not verified**, because no mail provider exists, and the hint says so.
+- **Leaving is a right, so the deletion dialog argues for nothing.** It is immediate, and the dialog
+  says what goes and that there is no way back. No red, no "tem certeza?", no list of what would be
+  lost, same as revoking a consent. The password is there against a stolen session, not to slow
+  anybody down.
+- **The support contacts are here too**, from `@shared/ui/support-contacts`, neutral and always shown.
 
 ## `/transactions` — the statement screen
 

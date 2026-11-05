@@ -41,6 +41,8 @@ type AuthTextFieldProps = {
   readonly kind: AuthFieldKind;
   readonly autoComplete: 'name' | 'email';
   readonly placeholder?: string;
+  /** What the field starts with, for a form editing something that already exists. */
+  readonly defaultValue?: string;
   /** Shown under the input and wired with `aria-describedby`, never a placeholder. */
   readonly hint?: string;
   /** Rendered under the input with `aria-invalid`, next to the field that failed. */
@@ -54,6 +56,7 @@ export function AuthTextField({
   kind,
   autoComplete,
   placeholder,
+  defaultValue,
   hint,
   error,
   enterKeyHint,
@@ -76,6 +79,7 @@ export function AuthTextField({
         autoComplete={autoComplete}
         enterKeyHint={enterKeyHint}
         placeholder={placeholder}
+        defaultValue={defaultValue}
         className="h-10"
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy === '' ? undefined : describedBy}
