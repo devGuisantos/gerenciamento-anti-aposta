@@ -103,7 +103,7 @@ export default async function AccountsPage({ searchParams }: PageProps<'/account
       <div className="space-y-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">Contas conectadas</h1>
         <p className="text-sm text-muted-foreground">
-          Você decide o que o anti-aposta pode ler, e pode revogar a qualquer momento.
+          Você decide o que o PausaBet pode ler, e pode revogar a qualquer momento.
         </p>
       </div>
 

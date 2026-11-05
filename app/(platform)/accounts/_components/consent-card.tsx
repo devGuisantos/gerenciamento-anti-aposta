@@ -57,8 +57,8 @@ export function ConsentCard({ consent, accounts }: ConsentCardProps) {
           <RevokeConsentDialog consentId={consent.id} />
         </div>
         <p className="text-xs text-muted-foreground">
-          O banco avisa o anti-aposta quando há lançamentos novos, e o extrato é lido em seguida —
-          você também pode sincronizar quando quiser. O anti-aposta só vê pagamentos depois que
+          O banco avisa o PausaBet quando há lançamentos novos, e o extrato é lido em seguida —
+          você também pode sincronizar quando quiser. O PausaBet só vê pagamentos depois que
           acontecem, e não pode impedir nenhum deles.
         </p>
       </CardContent>

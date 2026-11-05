@@ -63,7 +63,7 @@ export function BankLedgerPanel({ recipientId, ...vocabulary }: BankLedgerPanelP
         <CardTitle>Banco simulado: registrar um lançamento</CardTitle>
         <CardDescription>
           Ambiente de demonstração. Isto acontece do lado do Banco Andorinha, como se a pessoa tivesse
-          usado a conta ou o cartão. O banco avisa o anti-aposta, que lê o extrato em seguida: com um
+          usado a conta ou o cartão. O banco avisa o PausaBet, que lê o extrato em seguida: com um
           consentimento ativo, o lançamento aparece na tela dela em instantes. Nenhum valor aqui é
           real.
         </CardDescription>

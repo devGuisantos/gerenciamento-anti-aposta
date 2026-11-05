@@ -81,7 +81,7 @@ export function AuthAside({ className }: { readonly className?: string }) {
         </h2>
 
         <p className="max-w-xl text-sm text-muted-foreground">
-          O anti-aposta encontra sozinho as transações com casas de apostas no seu extrato e mostra
+          O PausaBet encontra sozinho as transações com casas de apostas no seu extrato e mostra
           quanto aquele mesmo dinheiro renderia investido. Sem bloqueio e sem sermão.
         </p>
       </div>

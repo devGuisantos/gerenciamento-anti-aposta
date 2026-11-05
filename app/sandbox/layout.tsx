@@ -43,7 +43,7 @@ export default function SandboxBankLayout({ children }: LayoutProps<'/sandbox'>)
 
       <footer className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
         <p className="text-xs text-muted-foreground">
-          Instituição fictícia, parte do ambiente acadêmico de demonstração do anti-aposta. Nenhuma
+          Instituição fictícia, parte do ambiente acadêmico de demonstração do PausaBet. Nenhuma
           conta, saldo ou movimentação aqui é real, e nenhuma credencial bancária é pedida.
         </p>
       </footer>

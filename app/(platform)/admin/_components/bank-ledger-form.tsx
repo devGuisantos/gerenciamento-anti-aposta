@@ -208,7 +208,7 @@ export function BankLedgerForm({
         <div className="sm:col-span-2">
           <TextField
             label="Descrição no extrato"
-            hint="Como o banco imprimiria a linha. O anti-aposta lê esta descrição."
+            hint="Como o banco imprimiria a linha. O PausaBet lê esta descrição."
             value={draft.transactionName}
             onChange={(transactionName) => update({ transactionName })}
             required
@@ -233,7 +233,7 @@ export function BankLedgerForm({
         />
         <TextField
           label="Há quantos dias"
-          hint="0 é agora. Até 364: o anti-aposta lê os últimos 365 dias do banco."
+          hint="0 é agora. Até 364: o PausaBet lê os últimos 365 dias do banco."
           value={draft.daysAgo}
           onChange={(daysAgo) => update({ daysAgo })}
           required

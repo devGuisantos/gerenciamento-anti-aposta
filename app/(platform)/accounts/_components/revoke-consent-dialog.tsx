@@ -55,7 +55,7 @@ export function RevokeConsentDialog({ consentId }: { readonly consentId: string 
         <DialogHeader>
           <DialogTitle>Revogar o consentimento</DialogTitle>
           <DialogDescription>
-            O anti-aposta para de ler o seu extrato e apaga as transações, as contas e as
+            O PausaBet para de ler o seu extrato e apaga as transações, as contas e as
             classificações que leu até agora. O banco é avisado e invalida o acesso. Seu
             histórico no banco continua lá, e você pode conectar de novo quando quiser.
           </DialogDescription>

@@ -106,7 +106,7 @@ function RefusedRequest({ message }: { readonly message: string | null }) {
           Não foi possível abrir esta autorização
         </CardTitle>
         <CardDescription>
-          {message ?? 'O pedido de autorização não é válido.'} Volte ao anti-aposta e comece a
+          {message ?? 'O pedido de autorização não é válido.'} Volte ao PausaBet e comece a
           conexão de novo. Nada foi compartilhado.
         </CardDescription>
       </CardHeader>

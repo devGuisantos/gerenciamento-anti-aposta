@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "anti-aposta · Veja quanto as apostas custam de verdade",
-    template: "%s · anti-aposta",
+    default: "PausaBet · Veja quanto as apostas custam de verdade",
+    template: "%s · PausaBet",
   },
   description:
     "Plataforma de controle financeiro pessoal que identifica transações com casas de apostas pelo Open Finance e mostra quanto esse dinheiro renderia investido.",

@@ -110,7 +110,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="max-w-xl text-base text-muted-foreground">
-            O anti-aposta conecta sua conta pelo Open Finance, encontra
+            O PausaBet conecta sua conta pelo Open Finance, encontra
             automaticamente as transações com casas de apostas e mostra quanto
             aquele mesmo dinheiro renderia investido. Sem bloqueio, sem sermão:
             só o número que ninguém te mostra na hora da aposta.
