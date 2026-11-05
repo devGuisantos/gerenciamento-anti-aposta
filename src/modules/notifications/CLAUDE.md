@@ -33,13 +33,16 @@ browser EventSource ──> app/api/notifications/stream (Next route, holds the 
 domain/notification.ts               # PlatformNotification: the wire shape, kinds mirroring the
                                      # backend enum (AWARENESS_NUDGE, BADGE_AWARDED, STREAK_BROKEN,
                                      # GOAL_REACHED, TRANSACTIONS_INGESTED); DemoNotificationDraft
-infrastructure/notifications-api.ts  # openNotificationStream, sendDemoNotification
+infrastructure/notification-schema.ts # the Zod parse of one notification, shared by the two below
+infrastructure/notifications-api.ts  # openNotificationStream, listNotifications,
+                                     # markNotificationsRead, sendDemoNotification
 index.ts
 ```
 
-Server-only, like every module: a Client Component imports **types only**. The browser's parse of
-each frame lives next to the listener, in `app/(platform)/_components/notification-wire.ts` — the
-frame is a boundary, so it is parsed with Zod and a frame that does not parse is dropped.
+Server-only, like every module: a Client Component imports **types only**. The one exception is
+`notification-schema.ts`, which imports nothing but Zod so the browser can load it: each frame is a
+boundary, parsed in `app/(platform)/_components/notification-wire.ts`, and one that does not parse
+is dropped. The list uses the same schema, so the two cannot drift apart.
 
 ## Rendering — `NotificationListener`, mounted once in the platform layout
 
@@ -63,6 +66,31 @@ unnamed events).
 - A `BADGE_AWARDED` payload carries `badgeId` and the dialog reads the mark and criterion from the
   catalogue in `app/(platform)/achievements/_badge.ts`. An unknown id still renders from the
   payload's `title` and `description` — a notification must never blank a dialog.
+
+## The bell — the list beside the theme toggle
+
+`NotificationFeedProvider` holds the list; `NotificationListener` feeds it from the stream and
+`NotificationBell` renders it. Reads and receipts go through `_notifications-actions.ts`.
+
+- **The list is read after the stream opens, never before.** A notification delivered between a
+  read and the stream opening would be in neither. `open` fires again after a reconnection, so the
+  list catches up then too; a stream refused for good never opens, so `error` with a `CLOSED` source
+  reads it as well. List and stream are merged by id, so an overlap shows once.
+- **Opening the panel is the reading.** There is no "mark as read" control: whatever is unread while
+  it is open gets a receipt at once, including what arrives in that time. Marking on arrival would
+  clear the badge before anybody looked. A toast or a modal does not count as reading.
+- **A receipt names ids, and a failed one leaves them unread.** The badge never says read when the
+  backend does not.
+- **What arrived is read, not kept.** A `TRANSACTIONS_INGESTED` frame is a count, so the listener
+  calls `synchronise` on it, and the list answers with `movements`: the newest five, each with its
+  amount, date, name and verdict. Opening the panel reads again, so a correction shows. An empty
+  `movements` is a normal answer (a revoked consent, an old row): the count still renders.
+- **A movement reads like a statement row.** Red only on a betting amount, beside the badge naming
+  it; "Possível aposta" for a `LOW` match; and "Não identificada como aposta", never "não é aposta",
+  since the classifier can miss one.
+- **The badge is neutral** (`bg-foreground`) and still. Red means a gambling amount, the brand hue
+  never lands on a figure, and it stops counting at 9: it says there is something, not a score.
+- **`describeNotification` is the only wording of a kind**, shared by the list and the toasts.
 
 ## Rules
 

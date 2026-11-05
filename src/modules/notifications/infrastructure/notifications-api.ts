@@ -3,12 +3,18 @@ import { z } from 'zod';
 import { callBackend, type BackendResult } from '@shared/infrastructure/backend-api';
 import { env } from '@shared/infrastructure/env';
 
-import type { DemoNotificationDraft } from '../domain/notification';
+import type { DemoNotificationDraft, PlatformNotification } from '../domain/notification';
+import { notificationSchema } from './notification-schema';
 
 const STREAM_PATH = '/api/v1/notifications/stream';
 
 /** The console needs to know it landed, not to read the notification back. */
 const deliveredSchema = z.object({ id: z.string() });
+
+const notificationListSchema = z.object({ items: z.array(notificationSchema) });
+
+/** `204` arrives with no body. */
+const noContentSchema = z.null();
 
 /**
  * `GET /api/v1/notifications/stream` — the caller's own stream, opened with the
@@ -35,6 +41,34 @@ export async function openNotificationStream(input: {
     cache: 'no-store',
     signal: input.signal,
   }).catch(() => null);
+}
+
+/** `GET /api/v1/notifications` — what the caller keeps, newest first. It fits in one answer. */
+export async function listNotifications(
+  sessionToken: string,
+): Promise<BackendResult<readonly PlatformNotification[]>> {
+  const result = await callBackend({
+    method: 'GET',
+    path: '/notifications',
+    sessionToken,
+    responseSchema: notificationListSchema,
+  });
+
+  return result.ok ? { ok: true, value: result.value.items } : result;
+}
+
+/** `POST /api/v1/notifications/read-receipts` — the caller has seen these. */
+export async function markNotificationsRead(
+  sessionToken: string,
+  notificationIds: readonly string[],
+): Promise<BackendResult<null>> {
+  return callBackend({
+    method: 'POST',
+    path: '/notifications/read-receipts',
+    body: { notificationIds },
+    sessionToken,
+    responseSchema: noContentSchema,
+  });
 }
 
 /**

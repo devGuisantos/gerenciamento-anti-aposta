@@ -1,6 +1,5 @@
-import { z } from 'zod';
-
 import type { NotificationKind, PlatformNotification } from '@modules/notifications';
+import { notificationSchema } from '@modules/notifications/infrastructure/notification-schema';
 
 /**
  * The stream's named events, one per kind. `EventSource.onmessage` only hears
@@ -13,40 +12,6 @@ export const NOTIFICATION_EVENTS = [
   'GOAL_REACHED',
   'TRANSACTIONS_INGESTED',
 ] as const satisfies readonly NotificationKind[];
-
-const delivered = { id: z.string(), createdAt: z.string() };
-const cents = z.number().int();
-
-/**
- * The frame's `data` is a boundary like any response body: parsed, never cast.
- * A frame that does not parse is dropped rather than rendered half-empty.
- */
-const notificationSchema = z.discriminatedUnion('kind', [
-  z.object({
-    ...delivered,
-    kind: z.literal('AWARENESS_NUDGE'),
-    merchant: z.string(),
-    amountInCents: cents,
-    yieldInCents: cents,
-    annualRatePercent: z.number(),
-    monthlyTotalInCents: cents,
-    matchedBy: z.string(),
-  }),
-  z.object({
-    ...delivered,
-    kind: z.literal('BADGE_AWARDED'),
-    badgeId: z.string(),
-    title: z.string(),
-    description: z.string(),
-  }),
-  z.object({ ...delivered, kind: z.literal('STREAK_BROKEN'), previousDays: z.number().int() }),
-  z.object({ ...delivered, kind: z.literal('GOAL_REACHED'), label: z.string(), amountInCents: cents }),
-  z.object({
-    ...delivered,
-    kind: z.literal('TRANSACTIONS_INGESTED'),
-    ingestedCount: z.number().int(),
-  }),
-]);
 
 export function parseNotification(raw: string): PlatformNotification | null {
   try {

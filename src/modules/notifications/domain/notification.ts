@@ -19,6 +19,8 @@ type Delivered = {
   /** Also the stream's event id: a reconnecting browser resumes after it. */
   readonly id: string;
   readonly createdAt: string;
+  /** Null until the person has seen it in the bell's list. */
+  readonly readAt: string | null;
 };
 
 export type AwarenessNudgeNotification = Delivered & {
@@ -58,10 +60,29 @@ export type GoalReachedNotification = Delivered & {
   readonly amountInCents: number;
 };
 
+/** One statement row as the list quotes it, read from the statement on every read. */
+export type MovementLine = {
+  readonly transactionId: string;
+  readonly occurredAt: string;
+  readonly counterparty: string;
+  /** Signed: a debit is negative. */
+  readonly amountInCents: number;
+  /** Null when it is not classified as a bet, which a correction also leaves. */
+  readonly bet: {
+    readonly matchedBy: 'GAMBLING_MCC' | 'LICENSED_CNPJ' | 'DESCRIPTION_KEYWORD';
+    readonly confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  } | null;
+};
+
 /** New movements reached the statement: whatever shows it should read it again. */
 export type TransactionsIngestedNotification = Delivered & {
   readonly kind: 'TRANSACTIONS_INGESTED';
   readonly ingestedCount: number;
+  /**
+   * The newest few. Empty on the stream, which carries a count and never a
+   * movement, and once a revoked consent has taken the statement with it.
+   */
+  readonly movements: readonly MovementLine[];
 };
 
 export type PlatformNotification =
