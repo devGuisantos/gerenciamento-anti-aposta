@@ -9,6 +9,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
+import { ACCOUNT_DELETED, ACCOUNT_NOTICE_PARAMETER } from '@/app/_account-notice';
+
 import { SignInForm } from '../_components/sign-in-form';
 
 export const metadata: Metadata = {
@@ -17,7 +19,10 @@ export const metadata: Metadata = {
 };
 
 /** The page stays a Server Component; everything interactive is in `SignInForm`. */
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
+  const parameters = await searchParams;
+  const wasDeleted = parameters[ACCOUNT_NOTICE_PARAMETER] === ACCOUNT_DELETED;
+
   return (
     <Card>
       <CardHeader>
@@ -28,6 +33,12 @@ export default function LoginPage() {
       </CardHeader>
 
       <CardContent className="space-y-6">
+        {wasDeleted ? (
+          <p role="status" className="rounded-lg bg-muted p-3 text-sm">
+            Sua conta e seus dados foram excluídos.
+          </p>
+        ) : null}
+
         <SignInForm />
 
         <p className="text-center text-sm text-muted-foreground">

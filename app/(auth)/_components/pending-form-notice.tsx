@@ -3,8 +3,7 @@ import { Construction } from 'lucide-react';
 /**
  * What a completed auth form says instead of signing somebody in.
  *
- * Same family as `PlaceholderPage`: temporary by construction and obvious about
- * it. The one rule is that it **never fakes success** — nobody may leave this
+ * Temporary by construction and obvious about it. The one rule is that it **never fakes success** — nobody may leave this
  * screen believing an account exists, a reset e-mail went out, or a session was
  * opened.
  *
