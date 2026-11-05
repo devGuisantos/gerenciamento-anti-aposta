@@ -15,23 +15,15 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 import { createSavingsGoalAction } from '../_actions';
-import { GOAL_PURPOSE_DESCRIPTORS } from '../_goal-purposes';
 import {
-  GOAL_PURPOSES,
   GOAL_TITLE_MAXIMUM_LENGTH,
   GOAL_TITLE_MINIMUM_LENGTH,
   type GoalPurpose,
 } from '../_savings-goal';
 import { AmountField } from './amount-field';
+import { PurposeField } from './purpose-field';
 import { FormError } from '@shared/ui/form-error';
 
 const DEFAULT_PURPOSE: GoalPurpose = 'EMERGENCY_FUND';
@@ -123,48 +115,5 @@ export function NewSavingsGoalDialog() {
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-type PurposeFieldProps = {
-  readonly purpose: GoalPurpose;
-  readonly onPurposeChange: (purpose: GoalPurpose) => void;
-};
-
-function PurposeField({ purpose, onPurposeChange }: PurposeFieldProps) {
-  const fieldId = useId();
-  const SelectedIcon = GOAL_PURPOSE_DESCRIPTORS[purpose].icon;
-
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={fieldId}>Para que serve</Label>
-      {/* A hidden input rather than Radix's own `name`, so what the action reads is
-          the value this component is holding and nothing else. */}
-      <input type="hidden" name="purpose" value={purpose} />
-      <Select value={purpose} onValueChange={onPurposeChange}>
-        <SelectTrigger id={fieldId} className="h-10 w-full">
-          {/* `SelectValue` needs explicit children: its items only register once the
-              portal opens, so an empty one renders blank on the server. */}
-          <SelectValue>
-            <span className="flex items-center gap-2">
-              <SelectedIcon aria-hidden className="size-4 text-muted-foreground" />
-              {GOAL_PURPOSE_DESCRIPTORS[purpose].label}
-            </span>
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {GOAL_PURPOSES.map((option) => {
-            const { label, icon: Icon } = GOAL_PURPOSE_DESCRIPTORS[option];
-
-            return (
-              <SelectItem key={option} value={option}>
-                <Icon aria-hidden className="size-4 text-muted-foreground" />
-                {label}
-              </SelectItem>
-            );
-          })}
-        </SelectContent>
-      </Select>
-    </div>
   );
 }

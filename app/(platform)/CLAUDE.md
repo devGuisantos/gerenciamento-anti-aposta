@@ -225,8 +225,13 @@ have become", the `SpendingEquivalences` carousel answers "what would it have bo
   prices are a catalogue the backend keeps as data with a review date; still approximations, which
   is why the card calls them that.
 - **Auto-advance needs an off switch.** WCAG 2.2.2: anything moving on its own past five seconds
-  must be pausable. It stops on hover, on keyboard focus, and on a visible button, and never starts
-  for `prefers-reduced-motion`.
+  must be pausable. It stops on hover, on keyboard focus, on a visible button and while the goal
+  dialog is open, and never starts for `prefers-reduced-motion`.
+- **"Criar meta" asks, then writes a real savings goal.** An object card opens
+  `EquivalenceGoalDialog` on `createSavingsGoalAction`, the same write as `/goals`: the name comes
+  from the card and stays editable, the purpose starts at `OTHER` and is the reader's to choose, and
+  the amount is the backend's `target`, shown and fixed — a goal for a different number than the one
+  on the card would be its own kind of lie. Months of a bill carry no target and no button.
 
 ## `/goals` — two kinds of goal, deliberately kept apart
 

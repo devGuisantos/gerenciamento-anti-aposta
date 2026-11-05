@@ -14,10 +14,9 @@ import {
 } from '@/components/ui/carousel';
 import { useIsHydrated } from '@/hooks/use-is-hydrated';
 import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
-import { formatBRL } from '@shared/ui/money-text';
 
-import { PendingActionButton } from '../../_components/pending-action-button';
 import type { Equivalence } from '../_equivalences';
+import { EquivalenceGoalDialog, type EquivalenceGoal } from './equivalence-goal-dialog';
 
 const SLIDE_INTERVAL_MS = 4_000;
 
@@ -48,6 +47,7 @@ export function SpendingEquivalences({
   const isHydrated = useIsHydrated();
   const prefersReducedMotion = usePrefersReducedMotion();
   const [isPlaying, setIsPlaying] = useState(true);
+  const [goalDraft, setGoalDraft] = useState<EquivalenceGoal | null>(null);
 
   /* Created once and never replaced: a fresh plugin instance on each render would
      restart the timer and make the slides stutter. State rather than a ref because
@@ -63,7 +63,9 @@ export function SpendingEquivalences({
 
   if (equivalences.length === 0) return null;
 
-  const isMoving = isPlaying && !prefersReducedMotion;
+  /* The dialog portals out of the carousel, so focus leaving for it does not count
+     as a pause: without this the card the reader chose slides away behind it. */
+  const isMoving = isPlaying && !prefersReducedMotion && goalDraft === null;
 
   return (
     <div className="space-y-3">
@@ -93,7 +95,7 @@ export function SpendingEquivalences({
           <CarouselContent>
             {equivalences.map((equivalence) => (
               <CarouselItem key={equivalence.id} className="sm:basis-1/2 lg:basis-1/3">
-                <EquivalenceCard equivalence={equivalence} />
+                <EquivalenceCard equivalence={equivalence} onCreateGoal={setGoalDraft} />
               </CarouselItem>
             ))}
           </CarouselContent>
@@ -108,7 +110,7 @@ export function SpendingEquivalences({
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {equivalences.slice(0, STATIC_PREVIEW_COUNT).map((equivalence) => (
             <li key={equivalence.id}>
-              <EquivalenceCard equivalence={equivalence} />
+              <EquivalenceCard equivalence={equivalence} onCreateGoal={setGoalDraft} />
             </li>
           ))}
         </ul>
@@ -118,11 +120,21 @@ export function SpendingEquivalences({
         Os meses usam a sua própria média de gastos. Os preços dos objetos são valores aproximados,
         só para dar uma ideia de tamanho.
       </p>
+
+      {/* Mounted per draft, so each card opens on its own name with nothing left over. */}
+      {goalDraft === null ? null : (
+        <EquivalenceGoalDialog goal={goalDraft} onClose={() => setGoalDraft(null)} />
+      )}
     </div>
   );
 }
 
-function EquivalenceCard({ equivalence }: { readonly equivalence: Equivalence }) {
+type EquivalenceCardProps = {
+  readonly equivalence: Equivalence;
+  readonly onCreateGoal: (goal: EquivalenceGoal) => void;
+};
+
+function EquivalenceCard({ equivalence, onCreateGoal }: EquivalenceCardProps) {
   return (
     /* bg-muted, not bg-background: --background and --card are the same white in
        the light theme, so a bg-background panel sitting on a Card is invisible
@@ -141,37 +153,36 @@ function EquivalenceCard({ equivalence }: { readonly equivalence: Equivalence })
           Uma conta que você já paga todo mês.
         </p>
       ) : (
-        <GoalAction label={equivalence.text} targetInCents={equivalence.targetInCents} />
+        <GoalAction
+          goal={{ title: equivalence.text, targetInCents: equivalence.targetInCents }}
+          onCreateGoal={onCreateGoal}
+        />
       )}
     </div>
   );
 }
 
+type GoalActionProps = {
+  readonly goal: EquivalenceGoal;
+  readonly onCreateGoal: (goal: EquivalenceGoal) => void;
+};
+
 /**
  * Turns "you could have had this" into "you could still have this" — the forward
  * half of the reframing, and the autonomy mechanic `gamification` describes: the
  * user decides how much to stop spending *and where it goes*.
- *
- * TODO(gamification): wire to a `CreateGoal` command taking { label, targetInCents }
- * and emitting `GoalCreated`. The dashboard's goal card and `/goals` both read the
- * result, and `GoalReached` already exists in the module's event list. Keep the
- * target as the amount shown on the card — a goal for a different number than the
- * one the reader just looked at is its own kind of lie.
  */
-function GoalAction({
-  label,
-  targetInCents,
-}: {
-  readonly label: string;
-  readonly targetInCents: number;
-}) {
+function GoalAction({ goal, onCreateGoal }: GoalActionProps) {
   return (
-    <PendingActionButton
-      className="w-full"
-      pendingMessage={`Seria uma meta de ${formatBRL(targetInCents)} para ${label}, mas o módulo de metas ainda não existe — nada foi guardado.`}
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="h-9 w-full"
+      onClick={() => onCreateGoal(goal)}
     >
       <Target />
       Criar meta
-    </PendingActionButton>
+    </Button>
   );
 }
