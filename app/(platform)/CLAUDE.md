@@ -7,7 +7,8 @@ this layout: a visitor should never see the app chrome before there is data in i
 
 `layout.tsx` wraps every screen in `TooltipProvider` → `SidebarProvider` → `AppSidebar` +
 `SidebarInset`. The header holds the `SidebarTrigger`, a link back to the site, and the
-"Dados simulados" marker that must stay until real Open Finance data flows.
+"Dados simulados" marker that must stay until real Open Finance data flows, and beside the theme
+toggle the notification bell (see `src/modules/notifications/CLAUDE.md`).
 
 - **Desktop:** the sidebar collapses to icon width (`collapsible="icon"`). Labels disappear, icons
   remain, and each button carries a `tooltip` so the icon is never unexplained. The open/closed

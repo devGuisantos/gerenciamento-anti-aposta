@@ -30,6 +30,8 @@ import {
   BadgeAwardedDialog,
   type BadgeAwardedNotification,
 } from '../achievements/_components/badge-awarded-dialog';
+import { describeNotification } from './notification-copy';
+import { useNotificationFeed } from './notification-feed';
 import {
   NOTIFICATION_EVENTS,
   parseNotification,
@@ -61,9 +63,16 @@ const ARRIVAL_TOAST_DURATION_IN_MILLISECONDS = 10_000;
  * **New transactions refresh the screen in place.** The statement, the charts
  * and the accounts are Server Components, so `router.refresh()` re-reads them
  * without a reload and without losing anything typed into a form.
+ *
+ * **Everything also lands in the bell's list**, whatever else it does. The list
+ * is read once the stream is open, never before: a notification delivered between
+ * a read and the stream opening would be in neither. `open` fires again after a
+ * reconnection, so the list catches up then too. A stream refused for good never
+ * opens, and the list is still read so the bell is not left loading.
  */
 export function NotificationListener() {
   const router = useRouter();
+  const { record, synchronise } = useNotificationFeed();
   const [nudge, setNudge] = React.useState<AwarenessNudgeNotification | null>(null);
   const [award, setAward] = React.useState<BadgeAwardedNotification | null>(null);
   const [burst, setBurst] = React.useState<ConfettiBurst | null>(null);
@@ -72,6 +81,8 @@ export function NotificationListener() {
     const source = new EventSource(STREAM_URL);
 
     function present(notification: PlatformNotification) {
+      const copy = describeNotification(notification);
+
       switch (notification.kind) {
         case 'AWARENESS_NUDGE':
           setNudge(notification);
@@ -85,17 +96,15 @@ export function NotificationListener() {
           break;
         case 'STREAK_BROKEN':
           // Stated neutrally, never as a reprimand.
-          toast.info('Sua sequência recomeçou', {
-            description: `A anterior foi de ${notification.previousDays} dias sem apostas.`,
-          });
+          toast.info(copy.title, { description: copy.detail });
           break;
         case 'GOAL_REACHED':
-          toast.success('Meta alcançada', {
-            description: `${notification.label} — ${formatBRL(notification.amountInCents)}.`,
-          });
+          toast.success(copy.title, { description: copy.detail });
           break;
         case 'TRANSACTIONS_INGESTED':
           router.refresh();
+          // The frame is a count; what arrived is read behind the session.
+          void synchronise();
           void announceTransactions(notification);
           break;
         default:
@@ -107,16 +116,28 @@ export function NotificationListener() {
       const notification = parseNotification(event.data);
 
       if (notification !== null) {
+        record(notification);
         present(notification);
       }
     }
+
+    function catchUp() {
+      void synchronise();
+    }
+
+    function catchUpIfRefused() {
+      if (source.readyState === EventSource.CLOSED) catchUp();
+    }
+
+    source.addEventListener('open', catchUp);
+    source.addEventListener('error', catchUpIfRefused);
 
     for (const name of NOTIFICATION_EVENTS) {
       source.addEventListener(name, receive);
     }
 
     return () => source.close();
-  }, [router]);
+  }, [router, record, synchronise]);
 
   return (
     <>
