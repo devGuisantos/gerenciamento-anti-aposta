@@ -52,3 +52,8 @@ export const GOAL_TITLE_MAXIMUM_LENGTH = 60;
  * HTML anchors `pattern` itself; the action anchors it explicitly.
  */
 export const AMOUNT_PATTERN = /\d{1,9}([,.]\d{1,2})?/;
+
+/** Integer cents as the amount field writes them, for a form that already knows the figure. */
+export function toAmountFieldValue(amountInCents: number): string {
+  return (amountInCents / 100).toFixed(2);
+}
